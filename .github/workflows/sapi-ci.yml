@@ -28,12 +28,15 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # FIX: Changed standard properties expansion to match direct environment variable handoffs cleanly
       - name: Configure Maven settings for Anypoint Exchange
         shell: bash
+        env:
+          ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
+          ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
         run: |
           mkdir -p "$HOME/.m2"
-          cat > "$HOME/.m2/settings.xml" <<'EOF'
+
+          cat > "$HOME/.m2/settings.xml" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -41,8 +44,8 @@ jobs:
             <servers>
               <server>
                 <id>anypoint-exchange-v3</id>
-                <username>${env.ANYPOINT_USERNAME}</username>
-                <password>${env.ANYPOINT_PASSWORD}</password>
+                <username>~~~Client~~~</username>
+                <password>${ANYPOINT_CLIENT_ID}~?~${ANYPOINT_CLIENT_SECRET}</password>
               </server>
             </servers>
           </settings>
@@ -51,19 +54,30 @@ jobs:
       - name: Validate required project files
         shell: bash
         run: |
-          test -f pom.xml || { echo "ERROR: pom.xml was not found."; exit 1; }
-          test -f mule-artifact.json || { echo "ERROR: mule-artifact.json was not found."; exit 1; }
-          test -d src/main || { echo "ERROR: src/main was not found."; exit 1; }
-          test -d src/test/munit || { echo "ERROR: src/test/munit was not found."; exit 1; }
+          test -f pom.xml || {
+            echo "ERROR: pom.xml was not found."
+            exit 1
+          }
+
+          test -f mule-artifact.json || {
+            echo "ERROR: mule-artifact.json was not found."
+            exit 1
+          }
+
+          test -d src/main || {
+            echo "ERROR: src/main was not found."
+            exit 1
+          }
+
+          test -d src/test/munit || {
+            echo "ERROR: src/test/munit was not found."
+            exit 1
+          }
 
       - name: Maven validate
         run: mvn --batch-mode --no-transfer-progress validate
 
-      # FIX: Injected environment maps straight into the test lifecycle execution phase to authenticate repositories securely
       - name: Run MUnit tests and package
-        env:
-          ANYPOINT_USERNAME: ${{ secrets.ANYPOINT_USERNAME }}
-          ANYPOINT_PASSWORD: ${{ secrets.ANYPOINT_PASSWORD }}
         run: mvn --batch-mode --no-transfer-progress package
 
       - name: Upload MUnit reports
