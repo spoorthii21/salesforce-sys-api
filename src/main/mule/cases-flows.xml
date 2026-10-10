@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+
+http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+
+http://www.mulesoft.org/schema/mule/salesforce
+http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	 <flow name="patch:\cases\(caseId):application\json:salesforce-sys-api-config">
+    <!-- 1. Log incoming Case ID -->
+    <logger level="INFO" message="Updating Case: #[attributes.uriParams.caseId]" />
+    
+    <!-- 2. Save Case ID text string to a variable -->
+    <set-variable value="#[attributes.uriParams.caseId]" doc:name="Set Variable" doc:id="0aa28d08-d34d-4654-869c-bba3aa9b99a0" variableName="caseId"/>
+    
+    <!-- 3. FIXED: Changed target from a variable to ee:set-payload -->
+    <ee:transform doc:name="Transform Message" doc:id="617f1cd7-f9d9-484a-ae38-24d407e119e0">
+        <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+[
+    {
+        Id : vars.caseId,
+        Status : payload.status,
+        Priority : payload.priority
+    }
+]]]></ee:set-payload>
+        </ee:message>
+    </ee:transform>
+    
+    <!-- 4. Execute Update inside Salesforce -->
+    <salesforce:update type="Case" doc:name="Update" doc:id="c124681f-2e69-48de-969a-cba1d57b87c1" config-ref="Salesforce_Config"/>
+    
+    <!-- 5. FIXED: Parse the response properly using safe validation rules -->
+   <ee:transform doc:name="Transform Message" doc:id="abbdad17-8587-4cc5-add0-e76f60f1e4e9" >
+    <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+if (payload.successful == true and (payload.items[0].payload.success default false) == true)
+{
+    "status" : "success",
+    "message" : "Case updated successfully",
+    "caseId" : vars.caseId
+}
+else
+{
+    "status" : "failed",
+    "message" : payload.items[0].exception.localizedMessage default "Salesforce rejected Case update."
+}]]></ee:set-payload>
+    </ee:message>
+			<ee:variables >
+			</ee:variables>
+
+</ee:transform>
+
+
+    
+    <logger level="INFO" doc:name="Logger" doc:id="b8e1573d-db53-42a9-b09f-f56cfb1cb90c" message="Case Updated Successfully"/>
+</flow>
+
+
+<flow name="get:\cases\customer\(contactId):salesforce-sys-api-config">
+    <!-- 1. Log incoming search criteria -->
+    <logger level="INFO" message="Fetching cases for contact: #[attributes.uriParams.contactId]" />
+    
+    <!-- 2. Save Contact ID into target variable -->
+    <set-variable value="#[attributes.uriParams.contactId]" doc:name="Set Variable" doc:id="eef246ff-0215-4b6e-a0db-58b0b907ba8f" variableName="contactId"/>
+    
+    <!-- 3. FIXED: Added single quotes ':contactId' and completely cleaned up the broken parameter tag syntax -->
+    <salesforce:query doc:name="Query" doc:id="d6862f95-b498-46dd-a8b0-1e7b642a3092" config-ref="Salesforce_Config">
+        <salesforce:salesforce-query ><![CDATA[SELECT Id, Subject, Description, Priority, Status, ContactId
+FROM Case
+WHERE ContactId = ':contactId']]></salesforce:salesforce-query>
+        <salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+    "contactId": vars.contactId
+}]]]></salesforce:parameters>
+    </salesforce:query>
+    
+    <!-- 4. Clean DataWeave payload mapper out to Postman -->
+    <ee:transform doc:name="Transform Message" doc:id="1c05f82d-58b7-4238-8c5e-6590a996bdfc" >
+        <ee:message >
+            <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+if (isEmpty(payload))
+{
+    "status": "error",
+    "message": "No cases found for contact ID: " ++ (vars.contactId default "")
+}
+else
+{
+    "status": "success",
+    "data": payload map (item) -> {
+        "caseId"      : item.Id,
+        "subject"     : item.Subject,
+        "description" : item.Description,
+        "priority"    : item.Priority,
+        "status"      : item.Status
+    }
+}]]></ee:set-payload>
+        </ee:message>
+			<ee:variables >
+			</ee:variables>
+    
+</ee:transform>
+    
+    <logger level="INFO" doc:name="Logger" doc:id="881988bd-37f8-4572-99f9-a83e7fc091cb" message="Cases Retrieved Successfully"/>
+</flow>
+<flow name="post:\cases:application\json:salesforce-sys-api-config">
+        <logger level="INFO" message="Creating Case" />
+		<ee:transform doc:name="Transform Message" doc:id="989fe444-6b72-40ce-b19a-1c14210c8143" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[
+    {
+        ContactId: payload.contactId,
+        Subject: payload.subject,
+        Description: payload.description,
+        Priority: payload.priority,
+        Status: "New"
+    }
+]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create type="Case" doc:name="Create" doc:id="61416917-af3f-4d41-896a-7ff2a34cd70f" config-ref="Salesforce_Config"/>
+	<ee:transform doc:name="Transform Message" doc:id="9a347ef6-e816-43a0-aa06-06592d1c0340" >
+    <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+// Safe navigation ensures it won't crash if items[0] or payload is weird
+if (payload.successful == true and (payload.items[0].payload.success default false) == true)
+{
+    "status" : "success",
+    "message" : "Case created successfully",
+    "id" : payload.items[0].id
+}
+else
+{
+    "status" : "failed",
+    "message" : payload.items[0].exception.localizedMessage default "Salesforce rejected Case creation. Check if ContactId exists and Priority is valid."
+}]]></ee:set-payload>
+    </ee:message>
+			<ee:variables >
+			</ee:variables>
+
+</ee:transform>
+
+		<logger level="INFO" doc:name="Logger" doc:id="447015eb-4ab7-4c54-abf2-e65abe45a1c4" message="Case Created Successfully"/>
+    
+</flow>
+	
+	
+	
+	
+	
+	
+	
+	
+	</mule>

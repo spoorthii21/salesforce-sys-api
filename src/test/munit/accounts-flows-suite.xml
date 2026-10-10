@@ -1,0 +1,752 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit
+        http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools
+        http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+
+    <munit:config name="accounts-flows-suite.xml"/>
+
+
+    <!-- ============================================================
+         TEST 01: GET ACCOUNT BY NAME - SUCCESS
+         ============================================================ -->
+
+    <munit:test
+            name="get-accounts-by-name-success-test"
+            description="Verify a matching account name returns successfully mapped account data">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                    doc:name="Mock Salesforce Query Success"
+                    processor="salesforce:query">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Query"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:payload
+                            mediaType="application/java"
+                            value="#[[
+                                {
+                                    Id: '001000000000001AAA',
+                                    Name: 'Acme Corp',
+                                    'Type' : 'Customer'
+                                }
+                            ]]"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Matching Account Name">
+                <munit:attributes
+                        value="#[{
+                            uriParams: {
+                                name: 'Acme Corp'
+                            }
+                        }]"/>
+            </munit:set-event>
+
+            <flow-ref
+                    doc:name="Call Get Accounts By Name Flow"
+                    name="get:\accounts\name\(name):salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Status Success"
+                    expression="#[payload.status]"
+                    is="#[MunitTools::equalTo('success')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Data Is Not Null"
+                    expression="#[payload.data]"
+                    is="#[MunitTools::notNullValue()]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert One Account Returned"
+                    expression="#[sizeOf(payload.data)]"
+                    is="#[MunitTools::equalTo(1)]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Account ID"
+                    expression="#[payload.data[0].id]"
+                    is="#[MunitTools::equalTo('001000000000001AAA')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Account Name"
+                    expression="#[payload.data[0].name]"
+                    is="#[MunitTools::equalTo('Acme Corp')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Account Type"
+                    expression="#[payload.data[0].'type']"
+                    is="#[MunitTools::equalTo('Customer')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert HTTP Status Is Null"
+                    expression="#[vars.httpStatus default null]"
+                    is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                    doc:name="Verify Query Called Once"
+                    processor="salesforce:query"
+                    times="1">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Query"/>
+                </munit-tools:with-attributes>
+
+            </munit-tools:verify-call>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ============================================================
+         TEST 02: GET ACCOUNT BY NAME - EMPTY RESULT
+         ============================================================ -->
+
+    <munit:test
+            name="get-accounts-by-name-empty-result-test"
+            description="Verify no matching account returns an error response">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                    doc:name="Mock Salesforce Query Empty"
+                    processor="salesforce:query">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Query"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:payload
+                            mediaType="application/java"
+                            value="#[[]]"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Nonexistent Account Name">
+                <munit:attributes
+                        value="#[{
+                            uriParams: {
+                                name: 'NonExistentCorp'
+                            }
+                        }]"/>
+            </munit:set-event>
+
+            <flow-ref
+                    doc:name="Call Get Accounts By Name Flow"
+                    name="get:\accounts\name\(name):salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Status Error"
+                    expression="#[payload.status]"
+                    is="#[MunitTools::equalTo('error')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Account Not Found Message"
+                    expression="#[payload.message]"
+                    is="#[MunitTools::equalTo('No account found with name: NonExistentCorp')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert HTTP Status Is Null"
+                    expression="#[vars.httpStatus default null]"
+                    is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                    doc:name="Verify Query Called Once"
+                    processor="salesforce:query"
+                    times="1">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Query"/>
+                </munit-tools:with-attributes>
+
+            </munit-tools:verify-call>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ============================================================
+         TEST 03: GET ACCOUNT BY NAME - CONNECTIVITY ERROR
+         ============================================================ -->
+
+    <munit:test
+            name="get-accounts-by-name-connectivity-error-test"
+            description="Verify Salesforce connectivity error during account name query"
+            expectedErrorType="SALESFORCE:CONNECTIVITY">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                    doc:name="Mock Query Connectivity Error"
+                    processor="salesforce:query">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Query"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:error
+                            typeId="SALESFORCE:CONNECTIVITY"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Account Name">
+                <munit:attributes
+                        value="#[{
+                            uriParams: {
+                                name: 'AcmeCorp'
+                            }
+                        }]"/>
+            </munit:set-event>
+
+            <flow-ref
+                    doc:name="Call Get Accounts By Name Flow"
+                    name="get:\accounts\name\(name):salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                    doc:name="Assert HTTP Status 503"
+                    expression="#[vars.httpStatus default null]"
+                    is="#[MunitTools::equalTo(503)]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Status Failed"
+                    expression="#[payload.status]"
+                    is="#[MunitTools::equalTo('failed')]"/>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ============================================================
+         TEST 04: GET ACCOUNT BY NAME - INVALID INPUT
+         ============================================================ -->
+
+    <munit:test
+            name="get-accounts-by-name-invalid-input-test"
+            description="Verify Salesforce invalid input error during account name query"
+            expectedErrorType="SALESFORCE:INVALID_INPUT">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                    doc:name="Mock Query Invalid Input Error"
+                    processor="salesforce:query">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Query"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:error
+                            typeId="SALESFORCE:INVALID_INPUT"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Invalid Account Name">
+                <munit:attributes
+                        value="#[{
+                            uriParams: {
+                                name: 'Bad~Name'
+                            }
+                        }]"/>
+            </munit:set-event>
+
+            <flow-ref
+                    doc:name="Call Get Accounts By Name Flow"
+                    name="get:\accounts\name\(name):salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                    doc:name="Assert HTTP Status 400"
+                    expression="#[vars.httpStatus default null]"
+                    is="#[MunitTools::equalTo(400)]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Status Failed"
+                    expression="#[payload.status]"
+                    is="#[MunitTools::equalTo('failed')]"/>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ============================================================
+         TEST 05: GET ACCOUNT BY ID - SUCCESS
+         ============================================================ -->
+
+    <munit:test
+            name="get-accounts-by-id-success-test"
+            description="Verify Salesforce retrieve returns a matching account">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                    doc:name="Mock Salesforce Retrieve Success"
+                    processor="salesforce:retrieve">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Retrieve Account"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:payload
+                            mediaType="application/java"
+                            value="#[[
+                                {
+                                    Id: '001bm000031GDyTAAW',
+                                    Name: 'ABC Pvt Ltd',
+                                    Type: 'Customer'
+                                }
+                            ]]"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Valid Account ID">
+                <munit:attributes
+                        value="#[{
+                            uriParams: {
+                                id: '001bm000031GDyTAAW'
+                            }
+                        }]"/>
+            </munit:set-event>
+
+            <flow-ref
+                    doc:name="Call Get Account By ID Flow"
+                    name="get:\accounts\(id):salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Status Success"
+                    expression="#[payload.status]"
+                    is="#[MunitTools::equalTo('success')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Data Is Not Null"
+                    expression="#[payload.data]"
+                    is="#[MunitTools::notNullValue()]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Account ID"
+                    expression="#[payload.data.accountId]"
+                    is="#[MunitTools::equalTo('001bm000031GDyTAAW')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Account Name"
+                    expression="#[payload.data.name]"
+                    is="#[MunitTools::equalTo('ABC Pvt Ltd')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Account Type"
+                    expression="#[payload.data.'type']"
+                    is="#[MunitTools::equalTo('Customer')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert HTTP Status Is Null"
+                    expression="#[vars.httpStatus default null]"
+                    is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                    doc:name="Verify Retrieve Called Once"
+                    processor="salesforce:retrieve"
+                    times="1">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Retrieve Account"/>
+                </munit-tools:with-attributes>
+
+            </munit-tools:verify-call>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ============================================================
+         TEST 06: GET ACCOUNT BY ID - NOT FOUND
+         ============================================================ -->
+
+    <munit:test
+            name="get-accounts-by-id-not-found-test"
+            description="Verify an empty Salesforce retrieve returns account not found">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                    doc:name="Mock Salesforce Retrieve Empty"
+                    processor="salesforce:retrieve">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Retrieve Account"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:payload
+                            mediaType="application/java"
+                            value="#[[]]"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Nonexistent Account ID">
+                <munit:attributes
+                        value="#[{
+                            uriParams: {
+                                id: 'INVALID_ACC_ID_000'
+                            }
+                        }]"/>
+            </munit:set-event>
+
+            <flow-ref
+                    doc:name="Call Get Account By ID Flow"
+                    name="get:\accounts\(id):salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Status Error"
+                    expression="#[payload.status]"
+                    is="#[MunitTools::equalTo('error')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Account Not Found Message"
+                    expression="#[payload.message]"
+                    is="#[MunitTools::equalTo('Account not found with ID: INVALID_ACC_ID_000')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert HTTP Status Is Null"
+                    expression="#[vars.httpStatus default null]"
+                    is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                    doc:name="Verify Retrieve Called Once"
+                    processor="salesforce:retrieve"
+                    times="1">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Retrieve Account"/>
+                </munit-tools:with-attributes>
+
+            </munit-tools:verify-call>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ============================================================
+         TEST 07: GET ACCOUNT BY ID - CONNECTIVITY ERROR
+         ============================================================ -->
+
+    <munit:test
+            name="get-accounts-by-id-connectivity-error-test"
+            description="Verify Salesforce connectivity error during account retrieve"
+            expectedErrorType="SALESFORCE:CONNECTIVITY">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                    doc:name="Mock Retrieve Connectivity Error"
+                    processor="salesforce:retrieve">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Retrieve Account"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:error
+                            typeId="SALESFORCE:CONNECTIVITY"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Account ID">
+                <munit:attributes
+                        value="#[{
+                            uriParams: {
+                                id: '001000000000001AAA'
+                            }
+                        }]"/>
+            </munit:set-event>
+
+            <flow-ref
+                    doc:name="Call Get Account By ID Flow"
+                    name="get:\accounts\(id):salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                    doc:name="Assert HTTP Status 503"
+                    expression="#[vars.httpStatus default null]"
+                    is="#[MunitTools::equalTo(503)]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Status Failed"
+                    expression="#[payload.status]"
+                    is="#[MunitTools::equalTo('failed')]"/>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ============================================================
+         TEST 08: GET ACCOUNT BY ID - TIMEOUT
+         ============================================================ -->
+
+    <munit:test
+            name="get-accounts-by-id-timeout-test"
+            description="Verify Salesforce timeout error during account retrieve"
+            expectedErrorType="SALESFORCE:TIMEOUT">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                    doc:name="Mock Retrieve Timeout Error"
+                    processor="salesforce:retrieve">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Retrieve Account"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:error
+                            typeId="SALESFORCE:TIMEOUT"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Account ID">
+                <munit:attributes
+                        value="#[{
+                            uriParams: {
+                                id: '001000000000001AAA'
+                            }
+                        }]"/>
+            </munit:set-event>
+
+            <flow-ref
+                    doc:name="Call Get Account By ID Flow"
+                    name="get:\accounts\(id):salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                    doc:name="Assert HTTP Status 504"
+                    expression="#[vars.httpStatus default null]"
+                    is="#[MunitTools::equalTo(504)]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Status Failed"
+                    expression="#[payload.status]"
+                    is="#[MunitTools::equalTo('failed')]"/>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ============================================================
+         TEST 09: POST ACCOUNT - SUCCESS
+         ============================================================ -->
+
+    <munit:test
+            name="post-accounts-success-test"
+            description="Verify successful Salesforce account creation">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                    doc:name="Mock Salesforce Create Success"
+                    processor="salesforce:create">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Create Account"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:payload
+                            mediaType="application/java"
+                            value="#[{
+                                id: null,
+                                items: [
+                                    {
+                                        id: '0015000001XxxXXXABC',
+                                        statusCode: null,
+                                        message: null,
+                                        payload: {
+                                            success: true,
+                                            errors: []
+                                        },
+                                        successful: true
+                                    }
+                                ],
+                                successful: true
+                            }]"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Valid Account Input">
+				<munit:payload value="#[output application/json&#10;---&#10;{&#10;                            name: 'Acme Corporation',&#10;                            &quot;type&quot;: 'Customer'&#10;                        }]" mediaType="application/json" />
+            </munit:set-event>
+
+            <flow-ref
+                    doc:name="Call Post Accounts Flow"
+                    name="post:\accounts:application\json:salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Status Success"
+                    expression="#[payload.status]"
+                    is="#[MunitTools::equalTo('success')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Creation Message"
+                    expression="#[payload.message]"
+                    is="#[MunitTools::equalTo('Account created successfully')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert Created Account ID"
+                    expression="#[payload.id]"
+                    is="#[MunitTools::equalTo('0015000001XxxXXXABC')]"/>
+
+            <munit-tools:assert-that
+                    doc:name="Assert HTTP Status Is Null"
+                    expression="#[vars.httpStatus default null]"
+                    is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                    doc:name="Verify Create Called Once"
+                    processor="salesforce:create"
+                    times="1">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                            attributeName="doc:name"
+                            whereValue="Create Account"/>
+                </munit-tools:with-attributes>
+
+            </munit-tools:verify-call>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ============================================================
+         TEST 10: POST ACCOUNT - INVALID INPUT
+         ============================================================ -->
+
+</mule>

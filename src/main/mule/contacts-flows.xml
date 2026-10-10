@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+
+http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+
+http://www.mulesoft.org/schema/mule/salesforce
+http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	 <flow name="post:\contacts:application\json:salesforce-sys-api-config">
+        <logger level="INFO" message="Creating Contact" />
+		<ee:transform doc:name="Transform Message" doc:id="138dabe6-342b-40d3-bd28-10a448b7cc9d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[
+  {
+    FirstName : payload.firstName,
+    LastName  : payload.lastName,
+    Email     : payload.email,
+    AccountId : payload.accountId
+  }
+]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create doc:name="Create" doc:id="119cdaa0-9096-404a-b3fb-65f915f0bb06" config-ref="Salesforce_Config" type="Contact">
+		</salesforce:create>
+        
+        <!-- FIXED: Implemented safe array navigation variables to eliminate Index/Null errors -->
+       <ee:transform doc:name="Transform Message" doc:id="842c775f-11fc-4f66-8f0a-a99bafa472ef" >
+    <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+if (payload.successful == true and (payload.items[0].payload.success default false) == true)
+    {
+       "status" : "success",
+       "message" : "Contact created successfully",
+       "id": payload.items[0].id
+    }
+else
+    {
+       "status" : "failed",
+       "message" : payload.items[0].exception.localizedMessage default "Salesforce rejected the creation"
+    }]]></ee:set-payload>
+    </ee:message>
+			<ee:variables >
+			</ee:variables>
+
+</ee:transform>
+
+
+		<logger level="INFO" doc:name="Logger" doc:id="a468fb17-971a-49d3-89f6-1ca585d49b03" message="Contact Created Successfully"/>
+    </flow>
+      <!-- 2. CORRECTED CONTACTS RETRIEVAL FLOW -->
+    <flow name="get:\contacts\(id):salesforce-sys-api-config">
+        <logger level="INFO" message="Fetching Contact Id: #[attributes.uriParams.id]" />
+		
+        <set-variable value="#[attributes.uriParams.id]" doc:name="Set Contact ID Variable" doc:id="ee7a98ad-f9f2-4f82-92a3-53bedee5bcfa" variableName="contactId"/>
+		
+        <!-- FIXED: Wrapped configuration elements inside the required salesforce:retrieve-request block -->
+        <salesforce:retrieve doc:name="Retrieve Contact" doc:id="461f3a9a-2f2f-4f57-8cc1-c2ad07b7218e" config-ref="Salesforce_Config" type="Contact">
+			<salesforce:retrieve-request ><![CDATA[#[{
+				ids: [vars.contactId],
+				fields: ["Id", "FirstName", "LastName", "Email", "AccountId"]
+			}]]]></salesforce:retrieve-request>
+		</salesforce:retrieve> 
+		
+        <ee:transform doc:name="Transform Contact Response" doc:id="cd0b9856-727e-4ec5-be42-49cddacc5195">
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+if (isEmpty(payload) or (payload[0] == null))
+{
+    "status": "error",
+    "message": "Contact not found with ID: " ++ (vars.contactId default "")
+}
+else
+{
+    "status" : "success",
+    "data": {
+        "contactId" : payload[0].Id default "",
+        "firstName" : payload[0].FirstName default "",
+        "lastName"  : payload[0].LastName default "",
+        "email"     : payload[0].Email default "",
+        "accountId" : payload[0].AccountId default ""
+    }
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+			</ee:variables>
+		
+</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="eb71ed3f-144f-435a-b8b0-f5ce64821337" message="Contact Retrieved By Id Successfully"/>
+    </flow>
+	<flow name="get:\contacts\email\(email):salesforce-sys-api-config">
+    <!-- 1. Log the incoming email from the request -->
+    <logger level="INFO" message="Searching Contact: #[attributes.uriParams.email]" />
+    
+    <!-- 2. Store the email search token into a variable -->
+    <set-variable value="#[attributes.uriParams.email]" doc:name="Set Variable" doc:id="6af2cdb0-8f1a-4d67-a0a0-57316ab652d2" variableName="email"/>
+    
+    <!-- 3. FIXED: Cleaned up the broken nested bracket parameter map notation -->
+    <salesforce:query doc:name="Query" doc:id="6e036a0c-ddaf-44bc-9e8e-a24e3049f3b4" config-ref="Salesforce_Config">
+        <salesforce:salesforce-query ><![CDATA[SELECT Id, FirstName, LastName, Email, AccountId
+FROM Contact
+WHERE Email = ':email']]></salesforce:salesforce-query>
+        <salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+   "email" : vars.email
+}]]]></salesforce:parameters>
+    </salesforce:query>
+    
+    <!-- 4. FIXED: Target changed from ee:set-variable to ee:set-payload -->
+    <ee:transform doc:name="Transform Message" doc:id="8f0a2248-a4ea-43f1-8242-1d5df53d403e">
+        <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+if (isEmpty(payload))
+{
+    "status": "error",
+    "message": "Contact not found with email: " ++ (vars.email default "")
+}
+else
+{
+    "status": "success",
+    "data": payload map (contact) -> {
+        "contactId" : contact.Id,
+        "firstName" : contact.FirstName,
+        "lastName"  : contact.LastName,
+        "email"     : contact.Email,
+        "accountId" : contact.AccountId
+    }
+}]]></ee:set-payload>
+        </ee:message>
+			<ee:variables >
+			</ee:variables>
+    
+</ee:transform>
+    
+    <logger level="INFO" doc:name="Logger" doc:id="f493b685-63c4-4eb1-a1d6-8a6e1383eeff" message="Contact Retrieved Successfully"/>
+</flow>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	</mule>

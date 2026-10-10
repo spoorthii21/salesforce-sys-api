@@ -1,0 +1,5 @@
+salesforce:
+  username: "spoorthimutha.82d90360aac2@agentforce.com"
+  password: "@Spoorthi21"
+  securityToken: "UTtvZo5YF0ctFW2RmyzxpnG5"
+  authorizationUrl: "https://login.salesforce.com/services/Soap/u/64.0"

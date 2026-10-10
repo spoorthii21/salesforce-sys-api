@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core
+http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+
+http://www.mulesoft.org/schema/mule/core
+http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+
+http://www.mulesoft.org/schema/mule/salesforce
+http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+<flow name="get:\accounts\name\(name):salesforce-sys-api-config">
+    <!-- 1. Log the incoming name from the URL -->
+    <logger level="INFO" doc:name="Logger" doc:id="16c5945d-d9fd-4776-8950-eded577788e1" message="Searching Account: #[attributes.uriParams.name]"/>
+    
+    <!-- 2. Save the name into a variable -->
+    <set-variable value="#[attributes.uriParams.name]" doc:name="Set Variable" doc:id="2f995c5a-d9d1-4b80-a9f9-39737d3914fe" variableName="accountName"/>
+    
+    <!-- 3. Query Salesforce using the dynamic variable -->
+   <salesforce:query doc:name="Query" doc:id="08807161-83ce-4709-b207-7726c8df349c" config-ref="Salesforce_Config">
+    <!-- FIX: Notice the single quotes ':accountName' wrapping the parameter -->
+    <salesforce:salesforce-query ><![CDATA[SELECT Id, Name, Type
+FROM Account
+WHERE Name = ':accountName']]></salesforce:salesforce-query>
+    <salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+    "accountName" : vars.accountName
+}]]]></salesforce:parameters>
+</salesforce:query>
+
+
+    <!-- 4. CORRECTED: Transform the PAYLOAD to JSON for Postman -->
+    <ee:transform doc:name="Transform Message" doc:id="757ce0bc-82d9-4709-a23d-201f3dbb5913">
+        <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+if (isEmpty(payload)) 
+    {
+        "status": "error",
+        "message": "No account found with name: " ++ (vars.accountName default "")
+    }
+else 
+    {
+        "status": "success",
+        "data": payload map (account) -> {
+            "id": account.Id,
+            "name": account.Name,
+            "type": account.Type
+        }
+    }]]></ee:set-payload>
+        </ee:message>
+			<ee:variables >
+			</ee:variables>
+    
+</ee:transform>
+    
+    <!-- 5. Log success -->
+    <logger level="INFO" message="Query Executed and Formatted Successfully" />
+</flow>
+
+
+<flow name="get:\accounts\(id):salesforce-sys-api-config">
+        <logger level="INFO" message="Fetching Account Id: #[attributes.uriParams.id]" />
+        
+        <set-variable value="#[attributes.uriParams.id]" doc:name="Set Account ID Variable" doc:id="98847f04-58aa-427e-a6db-8eeff82f33b2" variableName="accountId"/>
+        
+        <!-- FIXED: Wrapped configuration elements inside the required salesforce:retrieve-request block -->
+        <salesforce:retrieve doc:name="Retrieve Account" doc:id="5afb6721-1234-4cf4-8a8c-a76313e35901" config-ref="Salesforce_Config" type="Account">
+			<salesforce:retrieve-request ><![CDATA[#[{
+				ids: [vars.accountId],
+				fields: ["Id", "Name", "Type", "Industry"]
+			}]]]></salesforce:retrieve-request>
+		</salesforce:retrieve>
+
+        <ee:transform doc:name="Transform Account Response" doc:id="d78d71c4-88d9-4f4e-8c20-a9c60c041c7b">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+if (isEmpty(payload) or (payload[0] == null))
+{
+    "status": "error",
+    "message": "Account not found with ID: " ++ (vars.accountId default "")
+}
+else
+{
+    "status": "success",
+    "data": {
+        "accountId" : payload[0].Id default "",
+        "name"      : payload[0].Name default "",
+        "type"      : payload[0].Type default ""
+    }
+}]]></ee:set-payload>
+            </ee:message>
+			<ee:variables >
+			</ee:variables>
+        
+</ee:transform>
+    </flow>
+    <flow name="post:\accounts:application\json:salesforce-sys-api-config">
+    <!-- 1. Log incoming request -->
+    <logger level="INFO" message="System API: Starting Account Creation" />
+	
+    <!-- 2. Call sub-flow to transform request to Java array format -->
+    <flow-ref doc:name="Flow Reference" doc:id="82a7001c-e1b8-4476-997d-36ec78255a82" name="transform-account-request"/>
+	
+    <!-- 3. Create Account record in Salesforce -->
+    <salesforce:create doc:name="Create Account" doc:id="9b70b38e-35dd-4694-9747-942c71c066a7" config-ref="Salesforce_Config" type="Account">
+    </salesforce:create>
+
+    <!-- FIXED: Added response mapping to extract the new Salesforce ID for PAPI -->
+    <ee:transform doc:name="Transform Account Response" doc:id="e0375b6d-fcea-4477-92f7-f13da90ab7c5">
+        <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+if (payload.successful == true and (payload.items[0].payload.success default false) == true)
+{
+    "status": "success",
+    "message": "Account created successfully",
+    "id": payload.items[0].id
+}
+else
+{
+    "status": "failed",
+    "message": payload.items[0].exception.localizedMessage default "Salesforce rejected Account creation."
+}]]></ee:set-payload>
+        </ee:message>
+			<ee:variables >
+			</ee:variables>
+    
+</ee:transform>
+    
+    <logger level="INFO" message="System API: Account Creation Completed" />
+</flow>
+
+<sub-flow name="transform-account-request" doc:id="553d0fc2-a236-413b-bc98-add4af3dc592" >
+		<ee:transform doc:name="Transform Message" doc:id="534b7c02-e779-43ce-bde7-f0ad0a8fd52f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+[
+    {
+        Name: payload.name default "",
+        Type: payload."type" default "Customer"
+    }
+]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	</mule>

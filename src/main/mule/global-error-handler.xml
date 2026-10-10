@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+      http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+      http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+   <configuration doc:name="Configuration" doc:id="31f0731b-841c-4579-8ee5-cf73c718866d" defaultErrorHandler-ref="global_error_handler" />
+	<error-handler name="global_error_handler">
+
+    <!-- APIKIT Errors -->
+
+    <on-error-propagate type="APIKIT:BAD_REQUEST">
+        <set-variable variableName="httpStatus" value="#[400]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+    <on-error-propagate type="APIKIT:NOT_FOUND">
+        <set-variable variableName="httpStatus" value="#[404]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+    <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+        <set-variable variableName="httpStatus" value="#[405]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+    <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+        <set-variable variableName="httpStatus" value="#[406]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+    <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+        <set-variable variableName="httpStatus" value="#[415]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+    <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+        <set-variable variableName="httpStatus" value="#[501]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+    <!-- Salesforce Errors -->
+
+    <on-error-propagate type="SALESFORCE:INVALID_INPUT">
+        <set-variable variableName="httpStatus" value="#[400]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+    <on-error-propagate type="SALESFORCE:CONNECTIVITY">
+        <set-variable variableName="httpStatus" value="#[503]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+    <on-error-propagate type="SALESFORCE:TIMEOUT">
+        <set-variable variableName="httpStatus" value="#[504]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+    <!-- Catch All -->
+
+    <on-error-propagate type="ANY">
+        <set-variable variableName="httpStatus" value="#[500]"/>
+        <flow-ref name="common_error_handler"/>
+    </on-error-propagate>
+
+</error-handler>
+<sub-flow name="common_error_handler">
+
+ <logger level="ERROR" message="CorrelationId: #[correlationId] |
+                 ErrorType: #[error.errorType.identifier] |
+                 Message: #[error.description]" />
+		<ee:transform doc:name="error_response">
+        <ee:message>
+            <ee:set-payload><![CDATA[
+%dw 2.0
+output application/json
+---
+{
+    status: "failed",
+    statusCode: vars.httpStatus,
+    correlationId: correlationId,
+    errorType: error.errorType.identifier,
+    message: error.description
+}
+            ]]></ee:set-payload>
+        </ee:message>
+    </ee:transform>
+                 
+</sub-flow>
+</mule>
