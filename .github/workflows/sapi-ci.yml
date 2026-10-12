@@ -170,6 +170,11 @@ jobs:
             exit 1
           }
 
+          test -f src/main/mule/global.xml || {
+            echo "::error::global.xml was not found."
+            exit 1
+          }
+
           test -f src/main/mule/salesforce-sys-api.xml || {
             echo "::error::salesforce-sys-api.xml was not found."
             exit 1
@@ -190,29 +195,34 @@ jobs:
       - name: Validate Autodiscovery configuration
         shell: bash
         run: |
-          AUTODISCOVERY_FILE="src/main/mule/salesforce-sys-api.xml"
+          AUTODISCOVERY_FILE="src/main/mule/global.xml"
 
-          if ! grep -q "api-gateway:autodiscovery" "$AUTODISCOVERY_FILE"; then
-            echo "::error::API Autodiscovery element is missing from salesforce-sys-api.xml"
+          if ! grep -Fq "api-gateway:autodiscovery" "$AUTODISCOVERY_FILE"; then
+            echo "::error::API Autodiscovery element is missing from global.xml"
             exit 1
           fi
 
-          if ! grep -q 'apiId="${api.id}"' "$AUTODISCOVERY_FILE"; then
-            echo "::error::Autodiscovery must use apiId=\"\${api.id}\""
+          if ! grep -Fq 'apiId="${api.id}"' "$AUTODISCOVERY_FILE"; then
+            echo "::error::Autodiscovery in global.xml must use apiId=\"\${api.id}\""
             exit 1
           fi
 
-          if ! grep -q 'flowRef="salesforce-sys-api-main"' "$AUTODISCOVERY_FILE"; then
+          if ! grep -Fq 'flowRef="salesforce-sys-api-main"' "$AUTODISCOVERY_FILE"; then
             echo "::error::Autodiscovery flowRef must be salesforce-sys-api-main"
             exit 1
           fi
 
-          if ! grep -q 'xmlns:api-gateway="http://www.mulesoft.org/schema/mule/mule-gateway"' "$AUTODISCOVERY_FILE"; then
-            echo "::error::API Gateway namespace is missing"
+          if ! grep -Fq 'xmlns:api-gateway="http://www.mulesoft.org/schema/mule/mule-gateway"' "$AUTODISCOVERY_FILE"; then
+            echo "::error::API Gateway namespace is missing from global.xml"
             exit 1
           fi
 
-          echo "API Autodiscovery XML configuration is valid."
+          if ! grep -Fq 'http://www.mulesoft.org/schema/mule/mule-gateway/current/mule-gateway.xsd' "$AUTODISCOVERY_FILE"; then
+            echo "::error::API Gateway schema location is missing from global.xml"
+            exit 1
+          fi
+
+          echo "API Autodiscovery configuration in global.xml is valid."
 
       - name: Maven validate
         shell: bash
@@ -432,7 +442,13 @@ jobs:
             echo "- Application: \`${SAPI_APPLICATION_NAME:-not configured}\`"
             echo "- Environment: \`${ANYPOINT_ENVIRONMENT:-not configured}\`"
             echo "- Target: \`${CLOUDHUB_TARGET:-not configured}\`"
-            echo "- API Autodiscovery configured: \`$([ -n "$SAPI_API_ID" ] && echo yes || echo no)\`"
+
+            if [ -n "$SAPI_API_ID" ]; then
+              echo "- API Autodiscovery configured: \`yes\`"
+            else
+              echo "- API Autodiscovery configured: \`no\`"
+            fi
+
             echo "- Deployment requested: \`$DEPLOY_REQUESTED\`"
 
             if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && \
