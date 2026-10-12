@@ -3,51 +3,95 @@
 <mule xmlns="http://www.mulesoft.org/schema/mule/core"
       xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
       xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="
-      http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-      http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-      http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd">
+http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http
+        http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit
+        http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd">
 
+    <!-- Main API flow -->
     <flow name="salesforce-sys-api-main">
 
+        <!-- Listen for Salesforce System API requests -->
         <http:listener
+            doc:name="Listen For Salesforce System API Requests"
             config-ref="salesforce-sys-api-httpListenerConfig"
             path="/api/*">
 
-            <http:response statusCode="#[vars.httpStatus default 200]">
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            <http:response
+                statusCode="#[vars.httpStatus default 200]">
+
+                <http:headers>
+                    #[vars.outboundHeaders default {}]
+                </http:headers>
+
             </http:response>
 
-            <http:error-response statusCode="#[vars.httpStatus default 500]">
-                <http:body>#[payload]</http:body>
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            <http:error-response
+                statusCode="#[vars.httpStatus default 500]">
+
+                <http:body>
+                    #[payload]
+                </http:body>
+
+                <http:headers>
+                    #[vars.outboundHeaders default {}]
+                </http:headers>
+
             </http:error-response>
 
         </http:listener>
 
-        <apikit:router config-ref="salesforce-sys-api-config"/>
+        <!-- Route request to the appropriate APIKit implementation flow -->
+        <apikit:router
+            doc:name="Route Salesforce System API Request"
+            config-ref="salesforce-sys-api-config"/>
 
     </flow>
 
+    <!-- APIKit console flow -->
     <flow name="salesforce-sys-api-console">
 
+        <!-- Listen for APIKit console requests -->
         <http:listener
+            doc:name="Listen For Salesforce API Console Requests"
             config-ref="salesforce-sys-api-httpListenerConfig"
             path="/console/*">
 
-            <http:response statusCode="#[vars.httpStatus default 200]">
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            <http:response
+                statusCode="#[vars.httpStatus default 200]">
+
+                <http:headers>
+                    #[vars.outboundHeaders default {}]
+                </http:headers>
+
             </http:response>
 
-            <http:error-response statusCode="#[vars.httpStatus default 500]">
-                <http:body>#[payload]</http:body>
-                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            <http:error-response
+                statusCode="#[vars.httpStatus default 500]">
+
+                <http:body>
+                    #[payload]
+                </http:body>
+
+                <http:headers>
+                    #[vars.outboundHeaders default {}]
+                </http:headers>
+
             </http:error-response>
 
         </http:listener>
 
-        <apikit:console config-ref="salesforce-sys-api-config"/>
+        <!-- Display the Salesforce System API console -->
+        <apikit:console
+            doc:name="Display Salesforce System API Console"
+            config-ref="salesforce-sys-api-config"/>
 
     </flow>
 

@@ -12,7 +12,7 @@
       http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
 http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
 
-<configuration-properties file="config-properties.yaml" />
+
 
 <http:listener-config name="salesforce-sys-api-httpListenerConfig">
     <http:listener-connection
@@ -32,10 +32,11 @@ http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/sc
     <salesforce:basic-connection
         username="${salesforce.username}"
         password="${secure::salesforce.password}"
-        securityToken="${salesforce.securityToken}"
-        url="${salesforce.authorizationUrl}" />
+        securityToken="${secure::salesforce.securityToken}"
+        url="https://login.salesforce.com/services/Soap/u/64.0" />
 </salesforce:sfdc-config>
-	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="af02a538-305f-4e1f-95a7-be64e6138137" file="secure-properties.yaml" key="password" >
+	<configuration-properties doc:name="Configuration properties" doc:id="73c5a5f8-879f-4283-8be4-9a3a7885904e" file="config-properties.yaml" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="67249530-6af9-45db-a91d-d95062961ec2" file="secure-properties.yaml" key="9d48f6c03b5c403a9822a16c385b7057">
 		<secure-properties:encrypt algorithm="Blowfish" />
 	</secure-properties:config>
 
