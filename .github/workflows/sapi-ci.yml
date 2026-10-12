@@ -190,34 +190,59 @@ jobs:
       - name: Validate Autodiscovery configuration
         shell: bash
         run: |
-          AUTODISCOVERY_FILE="src/main/mule/global.xml"
+          python3 <<'PY'
+          import re
+          import xml.etree.ElementTree as ET
 
-          if ! grep -Fq "api-gateway:autodiscovery" "$AUTODISCOVERY_FILE"; then
-            echo "::error::API Autodiscovery element is missing from global.xml"
-            exit 1
-          fi
+          file_path = "src/main/mule/global.xml"
+          gateway_namespace = (
+              "http://www.mulesoft.org/schema/mule/mule-gateway"
+          )
 
-          if ! grep -Eq 'apiId="[0-9]+"' "$AUTODISCOVERY_FILE"; then
-            echo "::error::Autodiscovery apiId must contain the numeric API Instance ID"
-            exit 1
-          fi
+          try:
+              tree = ET.parse(file_path)
+          except ET.ParseError as exc:
+              raise RuntimeError(
+                  f"global.xml is not valid XML: {exc}"
+              ) from exc
 
-          if ! grep -Fq 'flowRef="salesforce-sys-api-main"' "$AUTODISCOVERY_FILE"; then
-            echo "::error::Autodiscovery flowRef must be salesforce-sys-api-main"
-            exit 1
-          fi
+          root = tree.getroot()
 
-          if ! grep -Fq 'xmlns:api-gateway="http://www.mulesoft.org/schema/mule/mule-gateway"' "$AUTODISCOVERY_FILE"; then
-            echo "::error::API Gateway namespace is missing from global.xml"
-            exit 1
-          fi
+          autodiscovery = root.find(
+              f"{{{gateway_namespace}}}autodiscovery"
+          )
 
-          if ! grep -Fq 'http://www.mulesoft.org/schema/mule/mule-gateway/current/mule-gateway.xsd' "$AUTODISCOVERY_FILE"; then
-            echo "::error::API Gateway schema location is missing from global.xml"
-            exit 1
-          fi
+          if autodiscovery is None:
+              autodiscovery = root.find(
+                  f".//{{{gateway_namespace}}}autodiscovery"
+              )
 
-          echo "API Autodiscovery configuration in global.xml is valid."
+          if autodiscovery is None:
+              raise RuntimeError(
+                  "API Autodiscovery element is missing from global.xml"
+              )
+
+          api_id = (autodiscovery.get("apiId") or "").strip()
+          flow_ref = (autodiscovery.get("flowRef") or "").strip()
+
+          if not re.fullmatch(r"[0-9]+", api_id):
+              raise RuntimeError(
+                  "Autodiscovery apiId must contain the numeric "
+                  "API Instance ID"
+              )
+
+          if flow_ref != "salesforce-sys-api-main":
+              raise RuntimeError(
+                  "Autodiscovery flowRef must be "
+                  "salesforce-sys-api-main"
+              )
+
+          print(
+              "API Autodiscovery configuration in global.xml is valid."
+          )
+          print("Numeric API Instance ID is configured.")
+          print(f"Autodiscovery flowRef: {flow_ref}")
+          PY
 
       - name: Maven validate
         shell: bash
