@@ -180,11 +180,6 @@ jobs:
             exit 1
           }
 
-          test -d src/main || {
-            echo "::error::src/main was not found."
-            exit 1
-          }
-
           test -d src/test/munit || {
             echo "::error::src/test/munit was not found."
             exit 1
@@ -202,8 +197,8 @@ jobs:
             exit 1
           fi
 
-          if ! grep -Fq 'apiId="${api.id}"' "$AUTODISCOVERY_FILE"; then
-            echo "::error::Autodiscovery in global.xml must use apiId=\"\${api.id}\""
+          if ! grep -Eq 'apiId="[0-9]+"' "$AUTODISCOVERY_FILE"; then
+            echo "::error::Autodiscovery apiId must contain the numeric API Instance ID"
             exit 1
           fi
 
@@ -231,7 +226,6 @@ jobs:
             --batch-mode \
             --no-transfer-progress \
             --settings "$HOME/.m2/settings.xml" \
-            -Dapi.id=1 \
             validate
 
       - name: Run MUnit tests and package
@@ -241,7 +235,6 @@ jobs:
             --batch-mode \
             --no-transfer-progress \
             --settings "$HOME/.m2/settings.xml" \
-            -Dapi.id=1 \
             package
 
       - name: Upload MUnit reports
@@ -267,7 +260,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Validate CloudHub and Autodiscovery variables
+      - name: Validate CloudHub 2.0 deployment variables
         if: >-
           ${{
             github.event_name == 'workflow_dispatch' &&
@@ -280,14 +273,12 @@ jobs:
           ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
           CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
           SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
-          SAPI_API_ID: ${{ vars.SAPI_API_ID }}
         run: |
           REQUIRED_VARIABLES=(
             ANYPOINT_ORG_ID
             ANYPOINT_ENVIRONMENT
             CLOUDHUB_TARGET
             SAPI_APPLICATION_NAME
-            SAPI_API_ID
           )
 
           MISSING=0
@@ -303,16 +294,10 @@ jobs:
             exit 1
           fi
 
-          if ! [[ "$SAPI_API_ID" =~ ^[0-9]+$ ]]; then
-            echo "::error::SAPI_API_ID must be the numeric API Instance ID from API Manager"
-            exit 1
-          fi
-
-          echo "CloudHub 2.0 and Autodiscovery variables are available."
+          echo "CloudHub 2.0 deployment variables are available."
           echo "Environment: $ANYPOINT_ENVIRONMENT"
           echo "Target: $CLOUDHUB_TARGET"
           echo "Application: $SAPI_APPLICATION_NAME"
-          echo "API Instance ID is configured."
 
       - name: Validate deployment and runtime secrets
         if: >-
@@ -350,7 +335,7 @@ jobs:
             exit 1
           fi
 
-          echo "Deployment credentials, Autodiscovery credentials, and encryption key are available."
+          echo "Deployment credentials, runtime credentials, and encryption key are available."
 
       - name: Publish application to Anypoint Exchange
         if: >-
@@ -363,16 +348,12 @@ jobs:
         env:
           CONNECTED_APP_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
           CONNECTED_APP_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
-
           ANYPOINT_ORG_ID: ${{ vars.ANYPOINT_ORG_ID }}
           ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
           CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
           SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
-          SAPI_API_ID: ${{ vars.SAPI_API_ID }}
-
           ANYPOINT_PLATFORM_CLIENT_ID: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_ID }}
           ANYPOINT_PLATFORM_CLIENT_SECRET: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}
-
           MULE_KEY: ${{ secrets.MULE_KEY }}
         run: |
           echo "Publishing Salesforce System API to Anypoint Exchange..."
@@ -396,23 +377,19 @@ jobs:
         env:
           CONNECTED_APP_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
           CONNECTED_APP_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
-
           ANYPOINT_ORG_ID: ${{ vars.ANYPOINT_ORG_ID }}
           ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
           CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
           SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
-          SAPI_API_ID: ${{ vars.SAPI_API_ID }}
-
           ANYPOINT_PLATFORM_CLIENT_ID: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_ID }}
           ANYPOINT_PLATFORM_CLIENT_SECRET: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}
-
           MULE_KEY: ${{ secrets.MULE_KEY }}
         run: |
           echo "Deploying Salesforce System API to CloudHub 2.0..."
           echo "Application: $SAPI_APPLICATION_NAME"
           echo "Environment: $ANYPOINT_ENVIRONMENT"
           echo "Target: $CLOUDHUB_TARGET"
-          echo "API Autodiscovery ID is configured."
+          echo "Numeric API Autodiscovery ID is configured in global.xml."
 
           mvn \
             --batch-mode \
@@ -429,7 +406,6 @@ jobs:
           SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
           ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
           CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
-          SAPI_API_ID: ${{ vars.SAPI_API_ID }}
         run: |
           {
             echo "## Salesforce System API CI/CD"
@@ -442,13 +418,7 @@ jobs:
             echo "- Application: \`${SAPI_APPLICATION_NAME:-not configured}\`"
             echo "- Environment: \`${ANYPOINT_ENVIRONMENT:-not configured}\`"
             echo "- Target: \`${CLOUDHUB_TARGET:-not configured}\`"
-
-            if [ -n "$SAPI_API_ID" ]; then
-              echo "- API Autodiscovery configured: \`yes\`"
-            else
-              echo "- API Autodiscovery configured: \`no\`"
-            fi
-
+            echo "- API Autodiscovery: \`Numeric ID configured in global.xml\`"
             echo "- Deployment requested: \`$DEPLOY_REQUESTED\`"
 
             if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && \
@@ -456,7 +426,7 @@ jobs:
                [ "$DEPLOY_REQUESTED" = "true" ]; then
               echo "- Exchange publishing: \`Enabled\`"
               echo "- CloudHub 2.0 deployment: \`Enabled\`"
-              echo "- API Autodiscovery properties: \`Enabled\`"
+              echo "- API Autodiscovery: \`Enabled\`"
             else
               echo "- Exchange publishing: \`Not executed\`"
               echo "- CloudHub 2.0 deployment: \`Not executed\`"
