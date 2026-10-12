@@ -110,13 +110,11 @@ else
     <flow-ref doc:name="Flow Reference" doc:id="82a7001c-e1b8-4476-997d-36ec78255a82" name="transform-account-request"/>
 	
     <!-- 3. Create Account record in Salesforce -->
-    <until-successful maxRetries="5" doc:name="Until Successful" doc:id="4fbb8127-d3d9-45c5-9e75-65ec7f44f5ca" >
-			<salesforce:create doc:name="Create Account" doc:id="9b70b38e-35dd-4694-9747-942c71c066a7" config-ref="Salesforce_Config" type="Account">
-    </salesforce:create>
-		</until-successful>
 
     <!-- FIXED: Added response mapping to extract the new Salesforce ID for PAPI -->
-    <ee:transform doc:name="Transform Account Response" doc:id="e0375b6d-fcea-4477-92f7-f13da90ab7c5">
+    <salesforce:create doc:name="Create Account" doc:id="9b70b38e-35dd-4694-9747-942c71c066a7" config-ref="Salesforce_Config" type="Account">
+    </salesforce:create>
+		<ee:transform doc:name="Transform Account Response" doc:id="e0375b6d-fcea-4477-92f7-f13da90ab7c5">
         <ee:message>
             <ee:set-payload><![CDATA[%dw 2.0
 output application/json

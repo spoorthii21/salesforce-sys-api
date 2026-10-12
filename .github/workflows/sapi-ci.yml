@@ -1,13 +1,24 @@
-name: Salesforce System API CI
+name: Salesforce System API CI/CD
 
-"on":
+on:
   push:
     branches:
       - main
+      - develop
+      - "feature/**"
+
   pull_request:
     branches:
+      - develop
       - main
+
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy SAPI to CloudHub 2.0
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,6 +50,33 @@ jobs:
           java -version
           mvn --version
 
+          ACTUAL_MAVEN_VERSION="$(mvn --version | head -1)"
+
+          if [[ "$ACTUAL_MAVEN_VERSION" != *"Apache Maven 3.9.9"* ]]; then
+            echo "::error::Expected Maven 3.9.9 but found: $ACTUAL_MAVEN_VERSION"
+            exit 1
+          fi
+
+          echo "Java 17 and Maven 3.9.9 are active."
+
+      - name: Validate required Anypoint secrets
+        shell: bash
+        env:
+          ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
+          ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+        run: |
+          if [ -z "$ANYPOINT_CLIENT_ID" ]; then
+            echo "::error::ANYPOINT_CLIENT_ID repository secret is missing"
+            exit 1
+          fi
+
+          if [ -z "$ANYPOINT_CLIENT_SECRET" ]; then
+            echo "::error::ANYPOINT_CLIENT_SECRET repository secret is missing"
+            exit 1
+          fi
+
+          echo "Required Anypoint repository secrets are available."
+
       - name: Configure Maven settings for Anypoint Exchange
         shell: bash
         env:
@@ -62,44 +100,111 @@ jobs:
           </settings>
           EOF
 
+          echo "Maven settings.xml created successfully."
+
+      - name: Validate Maven settings
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          settings_path = os.path.expanduser("~/.m2/settings.xml")
+
+          tree = ET.parse(settings_path)
+          root = tree.getroot()
+
+          namespace = {
+              "m": "http://maven.apache.org/SETTINGS/1.0.0"
+          }
+
+          server_id = root.findtext(
+              "m:servers/m:server/m:id",
+              namespaces=namespace
+          )
+
+          username = root.findtext(
+              "m:servers/m:server/m:username",
+              namespaces=namespace
+          )
+
+          password = root.findtext(
+              "m:servers/m:server/m:password",
+              namespaces=namespace
+          )
+
+          if server_id != "anypoint-exchange-v3":
+              raise RuntimeError(
+                  "Maven server ID is missing or incorrect"
+              )
+
+          if username != "~~~Client~~~":
+              raise RuntimeError(
+                  "Connected App Maven username is incorrect"
+              )
+
+          if not password or "~?~" not in password:
+              raise RuntimeError(
+                  "Connected App Maven password format is incorrect"
+              )
+
+          print("Maven settings.xml is valid.")
+          PY
+
       - name: Validate required project files
         shell: bash
         run: |
           test -f pom.xml || {
-            echo "ERROR: pom.xml was not found."
+            echo "::error::pom.xml was not found."
             exit 1
           }
 
           test -f mule-artifact.json || {
-            echo "ERROR: mule-artifact.json was not found."
+            echo "::error::mule-artifact.json was not found."
             exit 1
           }
 
           test -d src/main || {
-            echo "ERROR: src/main was not found."
+            echo "::error::src/main was not found."
             exit 1
           }
 
           test -d src/test/munit || {
-            echo "ERROR: src/test/munit was not found."
+            echo "::error::src/test/munit was not found."
             exit 1
           }
 
+          echo "Required project files are available."
+
       - name: Maven validate
-        run: mvn --batch-mode --no-transfer-progress validate
+        shell: bash
+        run: |
+          mvn \
+            --batch-mode \
+            --no-transfer-progress \
+            --settings "$HOME/.m2/settings.xml" \
+            validate
 
       - name: Run MUnit tests and package
-        run: mvn --batch-mode --no-transfer-progress package
+        shell: bash
+        run: |
+          mvn \
+            --batch-mode \
+            --no-transfer-progress \
+            --settings "$HOME/.m2/settings.xml" \
+            package
 
       - name: Upload MUnit reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: munit-reports
+          name: salesforce-sys-api-munit-reports
           path: |
             target/munit-reports/
             target/surefire-reports/
             target/site/munit/
+            target/coverage-reports/
+            target/**/*.log
           if-no-files-found: warn
           retention-days: 14
 
@@ -111,3 +216,126 @@ jobs:
           path: target/*.jar
           if-no-files-found: error
           retention-days: 14
+
+      - name: Validate CloudHub 2.0 deployment variables
+        if: >-
+          ${{
+            github.event_name == 'workflow_dispatch' &&
+            github.ref == 'refs/heads/main' &&
+            inputs.deploy == true
+          }}
+        shell: bash
+        env:
+          ANYPOINT_ORG_ID: ${{ vars.ANYPOINT_ORG_ID }}
+          ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
+          CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
+          SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
+        run: |
+          REQUIRED_VARIABLES=(
+            ANYPOINT_ORG_ID
+            ANYPOINT_ENVIRONMENT
+            CLOUDHUB_TARGET
+            SAPI_APPLICATION_NAME
+          )
+
+          MISSING=0
+
+          for VARIABLE_NAME in "${REQUIRED_VARIABLES[@]}"; do
+            if [ -z "${!VARIABLE_NAME}" ]; then
+              echo "::error::$VARIABLE_NAME repository variable is missing"
+              MISSING=1
+            fi
+          done
+
+          if [ "$MISSING" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "CloudHub 2.0 deployment variables are available."
+          echo "Environment: $ANYPOINT_ENVIRONMENT"
+          echo "Target: $CLOUDHUB_TARGET"
+          echo "Application: $SAPI_APPLICATION_NAME"
+
+      - name: Publish application to Anypoint Exchange
+        if: >-
+          ${{
+            github.event_name == 'workflow_dispatch' &&
+            github.ref == 'refs/heads/main' &&
+            inputs.deploy == true
+          }}
+        shell: bash
+        env:
+          CONNECTED_APP_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
+          CONNECTED_APP_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+          ANYPOINT_ORG_ID: ${{ vars.ANYPOINT_ORG_ID }}
+          ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
+          CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
+          SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
+        run: |
+          echo "Publishing Salesforce System API to Anypoint Exchange..."
+
+          mvn \
+            --batch-mode \
+            --no-transfer-progress \
+            --settings "$HOME/.m2/settings.xml" \
+            deploy \
+            -DskipMuleDeploy \
+            -DskipTests
+
+      - name: Deploy application to CloudHub 2.0
+        if: >-
+          ${{
+            github.event_name == 'workflow_dispatch' &&
+            github.ref == 'refs/heads/main' &&
+            inputs.deploy == true
+          }}
+        shell: bash
+        env:
+          CONNECTED_APP_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
+          CONNECTED_APP_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+          ANYPOINT_ORG_ID: ${{ vars.ANYPOINT_ORG_ID }}
+          ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
+          CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
+          SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
+        run: |
+          echo "Deploying Salesforce System API to CloudHub 2.0..."
+
+          mvn \
+            --batch-mode \
+            --no-transfer-progress \
+            --settings "$HOME/.m2/settings.xml" \
+            mule:deploy \
+            -DskipTests
+
+      - name: Write workflow summary
+        if: always()
+        shell: bash
+        env:
+          DEPLOY_REQUESTED: ${{ inputs.deploy || false }}
+          SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
+          ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
+          CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
+        run: |
+          {
+            echo "## Salesforce System API CI/CD"
+            echo
+            echo "- Repository: \`$GITHUB_REPOSITORY\`"
+            echo "- Branch: \`$GITHUB_REF_NAME\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Java: \`17\`"
+            echo "- Maven: \`3.9.9\`"
+            echo "- Application: \`${SAPI_APPLICATION_NAME:-not configured}\`"
+            echo "- Environment: \`${ANYPOINT_ENVIRONMENT:-not configured}\`"
+            echo "- Target: \`${CLOUDHUB_TARGET:-not configured}\`"
+            echo "- Deployment requested: \`$DEPLOY_REQUESTED\`"
+
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && \
+               [ "$GITHUB_REF" = "refs/heads/main" ] && \
+               [ "$DEPLOY_REQUESTED" = "true" ]; then
+              echo "- Exchange publishing: \`Enabled\`"
+              echo "- CloudHub 2.0 deployment: \`Enabled\`"
+            else
+              echo "- Exchange publishing: \`Not executed\`"
+              echo "- CloudHub 2.0 deployment: \`Not executed\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
