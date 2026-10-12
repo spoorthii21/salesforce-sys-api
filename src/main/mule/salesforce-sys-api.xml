@@ -15,7 +15,7 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
         http://www.mulesoft.org/schema/mule/mule-apikit
         http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd">
 
-    <!-- Main API flow -->
+    <!-- Main Salesforce System API flow -->
     <flow name="salesforce-sys-api-main">
 
         <!-- Listen for Salesforce System API requests -->
@@ -55,7 +55,7 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 
     </flow>
 
-    <!-- APIKit console flow -->
+    <!-- Salesforce System API console flow -->
     <flow name="salesforce-sys-api-console">
 
         <!-- Listen for APIKit console requests -->

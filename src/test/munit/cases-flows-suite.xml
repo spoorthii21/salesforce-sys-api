@@ -3,316 +3,315 @@
 <mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
       xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
-      xmlns="http://www.mulesoft.org/schema/mule/core"
       xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
       xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd 
-          http://www.mulesoft.org/schema/mule/core
-          http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-          http://www.mulesoft.org/schema/mule/munit
-          http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
-          http://www.mulesoft.org/schema/mule/munit-tools
-          http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit
+        http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools
+        http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
 
     <munit:config name="cases-flows-suite.xml"/>
 
-    <!-- ============================================================= -->
-    <!-- TEST 1: PATCH CASE SUCCESS                                     -->
-    <!-- ============================================================= -->
+    <!-- ========================================================= -->
+    <!-- TEST 01: PATCH CASE SUCCESS                               -->
+    <!-- ========================================================= -->
 
     <munit:test
-            name="patch-cases-success-test"
-            description="Verify successful case update">
+        name="patch-cases-success-test"
+        description="Verify successful case update">
 
         <munit:behavior>
 
             <munit-tools:mock-when
-                    doc:name="Mock Salesforce Update Success"
-                    processor="salesforce:update">
+                doc:name="Mock Salesforce Case Update Success"
+                processor="salesforce:update">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Update"/>
+                        attributeName="doc:name"
+                        whereValue="Update Salesforce Case"/>
                 </munit-tools:with-attributes>
 
                 <munit-tools:then-return>
                     <munit-tools:payload
-                            mediaType="application/java"
-                            value='#[{
-                                successful: true,
-                                items: [
-                                    {
-                                        payload: {
-                                            success: true
-                                        }
-                                    }
-                                ]
-                            }]'/>
-                </munit-tools:then-return>
-
-            </munit-tools:mock-when>
-
-        </munit:behavior>
-
-        <munit:execution>
-
-            <munit:set-event doc:name="Set Valid Patch Input">
-
-                <munit:payload
                         mediaType="application/java"
-                        value='#[{
-                            status: "Closed",
-                            priority: "High"
-                        }]' />
-
-                <munit:attributes
-                        value='#[{
-                            uriParams: {
-                                caseId: "5008W00000DCaseXYZ"
-                            }
-                        }]' />
-
-            </munit:set-event>
-
-            <flow-ref
-                    doc:name="Call Patch Cases Flow"
-                    name="patch:\cases\(caseId):application\json:salesforce-sys-api-config"/>
-
-        </munit:execution>
-
-        <munit:validation>
-
-            <munit-tools:assert-that
-                    doc:name="Assert Status Success"
-                    expression="#[payload.status]"
-                    is='#[MunitTools::equalTo("success")]'/>
-
-            <munit-tools:assert-that
-                    doc:name="Assert Case ID"
-                    expression="#[payload.caseId]"
-                    is='#[MunitTools::equalTo("5008W00000DCaseXYZ")]'/>
-
-            <munit-tools:assert-that
-                    doc:name="Assert Success Message"
-                    expression="#[payload.message]"
-                    is='#[MunitTools::equalTo("Case updated successfully")]'/>
-
-            <munit-tools:assert-that
-                    doc:name="Assert HTTP Status Is Null"
-                    expression="#[vars.httpStatus default null]"
-                    is='#[MunitTools::nullValue()]'/>
-
-            <munit-tools:verify-call
-                    doc:name="Verify Update Called Once"
-                    processor="salesforce:update"
-                    times="1">
-
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Update"/>
-                </munit-tools:with-attributes>
-
-            </munit-tools:verify-call>
-
-        </munit:validation>
-
-    </munit:test>
-
-    <!-- ============================================================= -->
-    <!-- TEST 2: PATCH CASE BUSINESS FAILURE                            -->
-    <!-- ============================================================= -->
-
-    <munit:test
-            name="patch-cases-failed-update-test"
-            description="Verify Salesforce business failure during case update">
-
-        <munit:behavior>
-
-            <munit-tools:mock-when
-                    doc:name="Mock Salesforce Update Failure"
-                    processor="salesforce:update">
-
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Update"/>
-                </munit-tools:with-attributes>
-
-                <munit-tools:then-return>
-                    <munit-tools:payload
-                            mediaType="application/java"
-                            value='#[{
-                                successful: false,
-                                items: [
-                                    {
-                                        exception: {
-                                            localizedMessage:
-                                                "Record not found or insufficient permissions"
-                                        }
-                                    }
-                                ]
-                            }]'/>
-                </munit-tools:then-return>
-
-            </munit-tools:mock-when>
-
-        </munit:behavior>
-
-        <munit:execution>
-
-            <munit:set-event doc:name="Set Invalid Patch Input">
-
-                <munit:payload
-                        mediaType="application/java"
-                        value='#[{
-                            status: "Closed",
-                            priority: "High"
-                        }]' />
-
-                <munit:attributes
-                        value='#[{
-                            uriParams: {
-                                caseId: "INVALID_CASE_ID_000"
-                            }
-                        }]' />
-
-            </munit:set-event>
-
-            <flow-ref
-                    doc:name="Call Patch Cases Flow"
-                    name="patch:\cases\(caseId):application\json:salesforce-sys-api-config"/>
-
-        </munit:execution>
-
-        <munit:validation>
-
-            <munit-tools:assert-that
-                    doc:name="Assert Status Failed"
-                    expression="#[payload.status]"
-                    is='#[MunitTools::equalTo("failed")]'/>
-
-            <munit-tools:assert-that
-                    doc:name="Assert Failure Message"
-                    expression="#[payload.message]"
-                    is='#[MunitTools::equalTo(
-                        "Record not found or insufficient permissions"
-                    )]'/>
-
-            <munit-tools:assert-that
-                    doc:name="Assert HTTP Status Is Null"
-                    expression="#[vars.httpStatus default null]"
-                    is='#[MunitTools::nullValue()]'/>
-
-            <munit-tools:verify-call
-                    doc:name="Verify Update Called Once"
-                    processor="salesforce:update"
-                    times="1">
-
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Update"/>
-                </munit-tools:with-attributes>
-
-            </munit-tools:verify-call>
-
-        </munit:validation>
-
-    </munit:test>
-
-    <!-- ============================================================= -->
-    <!-- TEST 3: PATCH CASE CONNECTIVITY ERROR                          -->
-    <!-- ============================================================= -->
-
-    <munit:test
-            name="patch-cases-connectivity-error-test"
-            description="Verify Salesforce connectivity error during update"
-            expectedErrorType="SALESFORCE:CONNECTIVITY">
-
-        <munit:behavior>
-
-            <munit-tools:mock-when
-                    doc:name="Mock Update Connectivity Error"
-                    processor="salesforce:update">
-
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Update"/>
-                </munit-tools:with-attributes>
-
-                <munit-tools:then-return>
-                    <munit-tools:error
-                            typeId="SALESFORCE:CONNECTIVITY"/>
-                </munit-tools:then-return>
-
-            </munit-tools:mock-when>
-
-        </munit:behavior>
-
-        <munit:execution>
-
-            <munit:set-event doc:name="Set Patch Input">
-
-                <munit:payload
-                        mediaType="application/java"
-                        value='#[{
-                            status: "Closed",
-                            priority: "High"
-                        }]' />
-
-                <munit:attributes
-                        value='#[{
-                            uriParams: {
-                                caseId: "5008W00000DCaseXYZ"
-                            }
-                        }]' />
-
-            </munit:set-event>
-
-            <flow-ref
-                    doc:name="Call Patch Cases Flow"
-                    name="patch:\cases\(caseId):application\json:salesforce-sys-api-config"/>
-
-        </munit:execution>
-
-    </munit:test>
-
-    <!-- ============================================================= -->
-    <!-- TEST 4: GET CASES SUCCESS                                      -->
-    <!-- ============================================================= -->
-
-    <munit:test
-            name="get-cases-by-contact-success-test"
-            description="Verify cases are returned for a contact">
-
-        <munit:behavior>
-
-            <munit-tools:mock-when
-                    doc:name="Mock Salesforce Query Success"
-                    processor="salesforce:query">
-
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Query"/>
-                </munit-tools:with-attributes>
-
-                <munit-tools:then-return>
-                    <munit-tools:payload
-                            mediaType="application/java"
-                            value='#[[
+                        value="#[{
+                            successful: true,
+                            items: [
                                 {
-                                    Id: "5003000000D8cuBAAR",
-                                    Subject: "Test Case Subject",
-                                    Description: "Test case description",
-                                    Priority: "High",
-                                    Status: "Open",
-                                    ContactId: "0030000000XyZABC"
+                                    payload: {
+                                        success: true
+                                    }
                                 }
-                            ]]'/>
+                            ]
+                        }]"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Valid Case Update Input">
+
+                <munit:payload
+                    mediaType="application/java"
+                    value="#[{
+                        status: 'Closed',
+                        priority: 'High'
+                    }]"/>
+
+                <munit:attributes
+                    value="#[{
+                        uriParams: {
+                            caseId: '5008W00000DCaseXYZ'
+                        }
+                    }]"/>
+
+            </munit:set-event>
+
+            <flow-ref
+                doc:name="Call Patch Case Flow"
+                name="patch:\cases\(caseId):application\json:salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                doc:name="Assert Case Update Status Success"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('success')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Updated Case ID"
+                expression="#[payload.caseId]"
+                is="#[MunitTools::equalTo('5008W00000DCaseXYZ')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Case Update Success Message"
+                expression="#[payload.message]"
+                is="#[MunitTools::equalTo('Case updated successfully')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                doc:name="Verify Salesforce Case Update Called Once"
+                processor="salesforce:update"
+                times="1">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Update Salesforce Case"/>
+                </munit-tools:with-attributes>
+
+            </munit-tools:verify-call>
+
+        </munit:validation>
+
+    </munit:test>
+
+    <!-- ========================================================= -->
+    <!-- TEST 02: PATCH CASE BUSINESS FAILURE                      -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="patch-cases-failed-update-test"
+        description="Verify Salesforce business failure during case update">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                doc:name="Mock Salesforce Case Update Business Failure"
+                processor="salesforce:update">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Update Salesforce Case"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:payload
+                        mediaType="application/java"
+                        value="#[{
+                            successful: false,
+                            items: [
+                                {
+                                    exception: {
+                                        localizedMessage:
+                                            'Record not found or insufficient permissions'
+                                    }
+                                }
+                            ]
+                        }]"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Invalid Case Update Input">
+
+                <munit:payload
+                    mediaType="application/java"
+                    value="#[{
+                        status: 'Closed',
+                        priority: 'High'
+                    }]"/>
+
+                <munit:attributes
+                    value="#[{
+                        uriParams: {
+                            caseId: 'INVALID_CASE_ID_000'
+                        }
+                    }]"/>
+
+            </munit:set-event>
+
+            <flow-ref
+                doc:name="Call Patch Case Flow"
+                name="patch:\cases\(caseId):application\json:salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                doc:name="Assert Case Update Status Failed"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('failed')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Case Update Failure Message"
+                expression="#[payload.message]"
+                is="#[MunitTools::equalTo(
+                    'Record not found or insufficient permissions'
+                )]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                doc:name="Verify Salesforce Case Update Called Once"
+                processor="salesforce:update"
+                times="1">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Update Salesforce Case"/>
+                </munit-tools:with-attributes>
+
+            </munit-tools:verify-call>
+
+        </munit:validation>
+
+    </munit:test>
+
+    <!-- ========================================================= -->
+    <!-- TEST 03: PATCH CASE CONNECTIVITY ERROR                    -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="patch-cases-connectivity-error-test"
+        description="Verify Salesforce connectivity error during case update"
+        expectedErrorType="SALESFORCE:CONNECTIVITY">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                doc:name="Mock Case Update Connectivity Error"
+                processor="salesforce:update">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Update Salesforce Case"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="SALESFORCE:CONNECTIVITY"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Case Update Input">
+
+                <munit:payload
+                    mediaType="application/java"
+                    value="#[{
+                        status: 'Closed',
+                        priority: 'High'
+                    }]"/>
+
+                <munit:attributes
+                    value="#[{
+                        uriParams: {
+                            caseId: '5008W00000DCaseXYZ'
+                        }
+                    }]"/>
+
+            </munit:set-event>
+
+            <flow-ref
+                doc:name="Call Patch Case Flow"
+                name="patch:\cases\(caseId):application\json:salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+    </munit:test>
+
+    <!-- ========================================================= -->
+    <!-- TEST 04: GET CASES BY CONTACT SUCCESS                     -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="get-cases-by-contact-success-test"
+        description="Verify cases are returned for a contact">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                doc:name="Mock Case Query Success"
+                processor="salesforce:query">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Query Cases By Contact ID"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:payload
+                        mediaType="application/java"
+                        value="#[[
+                            {
+                                Id: '5003000000D8cuBAAR',
+                                Subject: 'Test Case Subject',
+                                Description: 'Test case description',
+                                Priority: 'High',
+                                Status: 'Open',
+                                ContactId: '0030000000XyZABC'
+                            }
+                        ]]"/>
                 </munit-tools:then-return>
 
             </munit-tools:mock-when>
@@ -324,76 +323,76 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
             <munit:set-event doc:name="Set Valid Contact ID">
 
                 <munit:attributes
-                        value='#[{
-                            uriParams: {
-                                contactId: "0030000000XyZABC"
-                            }
-                        }]' />
+                    value="#[{
+                        uriParams: {
+                            contactId: '0030000000XyZABC'
+                        }
+                    }]"/>
 
             </munit:set-event>
 
             <flow-ref
-                    doc:name="Call Get Cases Flow"
-                    name="get:\cases\customer\(contactId):salesforce-sys-api-config"/>
+                doc:name="Call Get Cases By Contact Flow"
+                name="get:\cases\customer\(contactId):salesforce-sys-api-config"/>
 
         </munit:execution>
 
         <munit:validation>
 
             <munit-tools:assert-that
-                    doc:name="Assert Status Success"
-                    expression="#[payload.status]"
-                    is='#[MunitTools::equalTo("success")]'/>
+                doc:name="Assert Case Search Status Success"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('success')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert Data Not Null"
-                    expression="#[payload.data]"
-                    is='#[MunitTools::notNullValue()]'/>
+                doc:name="Assert Case Data Is Not Null"
+                expression="#[payload.data]"
+                is="#[MunitTools::notNullValue()]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert One Case Returned"
-                    expression="#[sizeOf(payload.data)]"
-                    is='#[MunitTools::equalTo(1)]'/>
+                doc:name="Assert One Case Returned"
+                expression="#[sizeOf(payload.data)]"
+                is="#[MunitTools::equalTo(1)]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert Case ID"
-                    expression="#[payload.data[0].caseId]"
-                    is='#[MunitTools::equalTo("5003000000D8cuBAAR")]'/>
+                doc:name="Assert Returned Case ID"
+                expression="#[payload.data[0].caseId]"
+                is="#[MunitTools::equalTo('5003000000D8cuBAAR')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert Subject"
-                    expression="#[payload.data[0].subject]"
-                    is='#[MunitTools::equalTo("Test Case Subject")]'/>
+                doc:name="Assert Returned Case Subject"
+                expression="#[payload.data[0].subject]"
+                is="#[MunitTools::equalTo('Test Case Subject')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert Description"
-                    expression="#[payload.data[0].description]"
-                    is='#[MunitTools::equalTo("Test case description")]'/>
+                doc:name="Assert Returned Case Description"
+                expression="#[payload.data[0].description]"
+                is="#[MunitTools::equalTo('Test case description')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert Priority"
-                    expression="#[payload.data[0].priority]"
-                    is='#[MunitTools::equalTo("High")]'/>
+                doc:name="Assert Returned Case Priority"
+                expression="#[payload.data[0].priority]"
+                is="#[MunitTools::equalTo('High')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert Case Status"
-                    expression="#[payload.data[0].status]"
-                    is='#[MunitTools::equalTo("Open")]'/>
+                doc:name="Assert Returned Case Status"
+                expression="#[payload.data[0].status]"
+                is="#[MunitTools::equalTo('Open')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert HTTP Status Is Null"
-                    expression="#[vars.httpStatus default null]"
-                    is='#[MunitTools::nullValue()]'/>
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
 
             <munit-tools:verify-call
-                    doc:name="Verify Query Called Once"
-                    processor="salesforce:query"
-                    times="1">
+                doc:name="Verify Case Query Called Once"
+                processor="salesforce:query"
+                times="1">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Query"/>
+                        attributeName="doc:name"
+                        whereValue="Query Cases By Contact ID"/>
                 </munit-tools:with-attributes>
 
             </munit-tools:verify-call>
@@ -402,30 +401,30 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
 
     </munit:test>
 
-    <!-- ============================================================= -->
-    <!-- TEST 5: GET CASES EMPTY RESULT                                 -->
-    <!-- ============================================================= -->
+    <!-- ========================================================= -->
+    <!-- TEST 05: GET CASES BY CONTACT EMPTY RESULT                -->
+    <!-- ========================================================= -->
 
     <munit:test
-            name="get-cases-by-contact-empty-result-test"
-            description="Verify proper response when no cases are found">
+        name="get-cases-by-contact-empty-result-test"
+        description="Verify proper response when no cases are found">
 
         <munit:behavior>
 
             <munit-tools:mock-when
-                    doc:name="Mock Empty Salesforce Query"
-                    processor="salesforce:query">
+                doc:name="Mock Empty Case Query Result"
+                processor="salesforce:query">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Query"/>
+                        attributeName="doc:name"
+                        whereValue="Query Cases By Contact ID"/>
                 </munit-tools:with-attributes>
 
                 <munit-tools:then-return>
                     <munit-tools:payload
-                            mediaType="application/java"
-                            value="#[[]]"/>
+                        mediaType="application/java"
+                        value="#[[]]"/>
                 </munit-tools:then-return>
 
             </munit-tools:mock-when>
@@ -437,48 +436,48 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
             <munit:set-event doc:name="Set Contact ID With No Cases">
 
                 <munit:attributes
-                        value='#[{
-                            uriParams: {
-                                contactId: "0030000000NoCase00"
-                            }
-                        }]' />
+                    value="#[{
+                        uriParams: {
+                            contactId: '0030000000NoCase00'
+                        }
+                    }]"/>
 
             </munit:set-event>
 
             <flow-ref
-                    doc:name="Call Get Cases Flow"
-                    name="get:\cases\customer\(contactId):salesforce-sys-api-config"/>
+                doc:name="Call Get Cases By Contact Flow"
+                name="get:\cases\customer\(contactId):salesforce-sys-api-config"/>
 
         </munit:execution>
 
         <munit:validation>
 
             <munit-tools:assert-that
-                    doc:name="Assert Status Error"
-                    expression="#[payload.status]"
-                    is='#[MunitTools::equalTo("error")]'/>
+                doc:name="Assert Case Search Status Error"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('error')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert No Cases Message"
-                    expression="#[payload.message]"
-                    is='#[MunitTools::equalTo(
-                        "No cases found for contact ID: 0030000000NoCase00"
-                    )]'/>
+                doc:name="Assert No Cases Found Message"
+                expression="#[payload.message]"
+                is="#[MunitTools::equalTo(
+                    'No cases found for contact ID: 0030000000NoCase00'
+                )]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert HTTP Status Is Null"
-                    expression="#[vars.httpStatus default null]"
-                    is='#[MunitTools::nullValue()]'/>
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
 
             <munit-tools:verify-call
-                    doc:name="Verify Query Called Once"
-                    processor="salesforce:query"
-                    times="1">
+                doc:name="Verify Case Query Called Once"
+                processor="salesforce:query"
+                times="1">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Query"/>
+                        attributeName="doc:name"
+                        whereValue="Query Cases By Contact ID"/>
                 </munit-tools:with-attributes>
 
             </munit-tools:verify-call>
@@ -487,30 +486,29 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
 
     </munit:test>
 
-    <!-- ============================================================= -->
-    <!-- TEST 6: GET CASES CONNECTIVITY ERROR                           -->
-    <!-- ============================================================= -->
+    <!-- ========================================================= -->
+    <!-- TEST 06: GET CASES CONNECTIVITY ERROR                     -->
+    <!-- ========================================================= -->
 
     <munit:test
-            name="get-cases-by-contact-connectivity-error-test"
-            description="Verify Salesforce connectivity error during query"
-            expectedErrorType="SALESFORCE:CONNECTIVITY">
+        name="get-cases-by-contact-connectivity-error-test"
+        description="Verify Salesforce connectivity error during case query"
+        expectedErrorType="SALESFORCE:CONNECTIVITY">
 
         <munit:behavior>
 
             <munit-tools:mock-when
-                    doc:name="Mock Query Connectivity Error"
-                    processor="salesforce:query">
+                doc:name="Mock Case Query Connectivity Error"
+                processor="salesforce:query">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Query"/>
+                        attributeName="doc:name"
+                        whereValue="Query Cases By Contact ID"/>
                 </munit-tools:with-attributes>
 
                 <munit-tools:then-return>
-                    <munit-tools:error
-                            typeId="SALESFORCE:CONNECTIVITY"/>
+                    <munit-tools:error typeId="SALESFORCE:CONNECTIVITY"/>
                 </munit-tools:then-return>
 
             </munit-tools:mock-when>
@@ -522,56 +520,56 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
             <munit:set-event doc:name="Set Contact ID">
 
                 <munit:attributes
-                        value='#[{
-                            uriParams: {
-                                contactId: "0030000000XyZABC"
-                            }
-                        }]' />
+                    value="#[{
+                        uriParams: {
+                            contactId: '0030000000XyZABC'
+                        }
+                    }]"/>
 
             </munit:set-event>
 
             <flow-ref
-                    doc:name="Call Get Cases Flow"
-                    name="get:\cases\customer\(contactId):salesforce-sys-api-config"/>
+                doc:name="Call Get Cases By Contact Flow"
+                name="get:\cases\customer\(contactId):salesforce-sys-api-config"/>
 
         </munit:execution>
 
     </munit:test>
 
-    <!-- ============================================================= -->
-    <!-- TEST 7: POST CASE SUCCESS                                      -->
-    <!-- ============================================================= -->
+    <!-- ========================================================= -->
+    <!-- TEST 07: POST CASE SUCCESS                                -->
+    <!-- ========================================================= -->
 
     <munit:test
-            name="post-cases-success-test"
-            description="Verify successful case creation">
+        name="post-cases-success-test"
+        description="Verify successful case creation">
 
         <munit:behavior>
 
             <munit-tools:mock-when
-                    doc:name="Mock Salesforce Create Success"
-                    processor="salesforce:create">
+                doc:name="Mock Salesforce Case Creation Success"
+                processor="salesforce:create">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Create"/>
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Case"/>
                 </munit-tools:with-attributes>
 
                 <munit-tools:then-return>
                     <munit-tools:payload
-                            mediaType="application/java"
-                            value='#[{
-                                successful: true,
-                                items: [
-                                    {
-                                        payload: {
-                                            success: true
-                                        },
-                                        id: "5001000000D8cuBAAR"
-                                    }
-                                ]
-                            }]'/>
+                        mediaType="application/java"
+                        value="#[{
+                            successful: true,
+                            items: [
+                                {
+                                    payload: {
+                                        success: true
+                                    },
+                                    id: '5001000000D8cuBAAR'
+                                }
+                            ]
+                        }]"/>
                 </munit-tools:then-return>
 
             </munit-tools:mock-when>
@@ -580,57 +578,56 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
 
         <munit:execution>
 
-            <munit:set-event doc:name="Set Valid Case Input">
+            <munit:set-event doc:name="Set Valid Case Creation Input">
 
                 <munit:payload
-                        mediaType="application/java"
-                        value='#[{
-                            contactId: "0030000000XyZABC",
-                            subject: "Billing Inquiry",
-                            description:
-                                "Customer cannot access billing portal",
-                            priority: "High"
-                        }]' />
+                    mediaType="application/java"
+                    value="#[{
+                        contactId: '0030000000XyZABC',
+                        subject: 'Billing Inquiry',
+                        description: 'Customer cannot access billing portal',
+                        priority: 'High'
+                    }]"/>
 
             </munit:set-event>
 
             <flow-ref
-                    doc:name="Call Post Cases Flow"
-                    name="post:\cases:application\json:salesforce-sys-api-config"/>
+                doc:name="Call Post Cases Flow"
+                name="post:\cases:application\json:salesforce-sys-api-config"/>
 
         </munit:execution>
 
         <munit:validation>
 
             <munit-tools:assert-that
-                    doc:name="Assert Status Success"
-                    expression="#[payload.status]"
-                    is='#[MunitTools::equalTo("success")]'/>
+                doc:name="Assert Case Creation Status Success"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('success')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert Success Message"
-                    expression="#[payload.message]"
-                    is='#[MunitTools::equalTo("Case created successfully")]'/>
+                doc:name="Assert Case Creation Success Message"
+                expression="#[payload.message]"
+                is="#[MunitTools::equalTo('Case created successfully')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert Created Case ID"
-                    expression="#[payload.id]"
-                    is='#[MunitTools::equalTo("5001000000D8cuBAAR")]'/>
+                doc:name="Assert Created Case ID"
+                expression="#[payload.id]"
+                is="#[MunitTools::equalTo('5001000000D8cuBAAR')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert HTTP Status Is Null"
-                    expression="#[vars.httpStatus default null]"
-                    is='#[MunitTools::nullValue()]'/>
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
 
             <munit-tools:verify-call
-                    doc:name="Verify Create Called Once"
-                    processor="salesforce:create"
-                    times="1">
+                doc:name="Verify Salesforce Case Creation Called Once"
+                processor="salesforce:create"
+                times="1">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Create"/>
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Case"/>
                 </munit-tools:with-attributes>
 
             </munit-tools:verify-call>
@@ -639,40 +636,40 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
 
     </munit:test>
 
-    <!-- ============================================================= -->
-    <!-- TEST 8: POST CASE BUSINESS FAILURE                             -->
-    <!-- ============================================================= -->
+    <!-- ========================================================= -->
+    <!-- TEST 08: POST CASE BUSINESS FAILURE                       -->
+    <!-- ========================================================= -->
 
     <munit:test
-            name="post-cases-failed-creation-test"
-            description="Verify Salesforce business failure during case creation">
+        name="post-cases-failed-creation-test"
+        description="Verify Salesforce business failure during case creation">
 
         <munit:behavior>
 
             <munit-tools:mock-when
-                    doc:name="Mock Salesforce Create Failure"
-                    processor="salesforce:create">
+                doc:name="Mock Salesforce Case Creation Failure"
+                processor="salesforce:create">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Create"/>
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Case"/>
                 </munit-tools:with-attributes>
 
                 <munit-tools:then-return>
                     <munit-tools:payload
-                            mediaType="application/java"
-                            value='#[{
-                                successful: false,
-                                items: [
-                                    {
-                                        exception: {
-                                            localizedMessage:
-                                                "ContactId does not exist or is not accessible"
-                                        }
+                        mediaType="application/java"
+                        value="#[{
+                            successful: false,
+                            items: [
+                                {
+                                    exception: {
+                                        localizedMessage:
+                                            'ContactId does not exist or is not accessible'
                                     }
-                                ]
-                            }]'/>
+                                }
+                            ]
+                        }]"/>
                 </munit-tools:then-return>
 
             </munit-tools:mock-when>
@@ -681,54 +678,53 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
 
         <munit:execution>
 
-            <munit:set-event doc:name="Set Invalid Contact ID">
+            <munit:set-event doc:name="Set Invalid Case Contact ID">
 
                 <munit:payload
-                        mediaType="application/java"
-                        value='#[{
-                            contactId: "INVALID_CONTACT_000",
-                            subject: "Billing Inquiry",
-                            description:
-                                "Customer cannot access billing portal",
-                            priority: "High"
-                        }]' />
+                    mediaType="application/java"
+                    value="#[{
+                        contactId: 'INVALID_CONTACT_000',
+                        subject: 'Billing Inquiry',
+                        description: 'Customer cannot access billing portal',
+                        priority: 'High'
+                    }]"/>
 
             </munit:set-event>
 
             <flow-ref
-                    doc:name="Call Post Cases Flow"
-                    name="post:\cases:application\json:salesforce-sys-api-config"/>
+                doc:name="Call Post Cases Flow"
+                name="post:\cases:application\json:salesforce-sys-api-config"/>
 
         </munit:execution>
 
         <munit:validation>
 
             <munit-tools:assert-that
-                    doc:name="Assert Status Failed"
-                    expression="#[payload.status]"
-                    is='#[MunitTools::equalTo("failed")]'/>
+                doc:name="Assert Case Creation Status Failed"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('failed')]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert Failure Message"
-                    expression="#[payload.message]"
-                    is='#[MunitTools::equalTo(
-                        "ContactId does not exist or is not accessible"
-                    )]'/>
+                doc:name="Assert Case Creation Failure Message"
+                expression="#[payload.message]"
+                is="#[MunitTools::equalTo(
+                    'ContactId does not exist or is not accessible'
+                )]"/>
 
             <munit-tools:assert-that
-                    doc:name="Assert HTTP Status Is Null"
-                    expression="#[vars.httpStatus default null]"
-                    is='#[MunitTools::nullValue()]'/>
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
 
             <munit-tools:verify-call
-                    doc:name="Verify Create Called Once"
-                    processor="salesforce:create"
-                    times="1">
+                doc:name="Verify Salesforce Case Creation Called Once"
+                processor="salesforce:create"
+                times="1">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Create"/>
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Case"/>
                 </munit-tools:with-attributes>
 
             </munit-tools:verify-call>
@@ -737,30 +733,29 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
 
     </munit:test>
 
-    <!-- ============================================================= -->
-    <!-- TEST 9: POST CASE CONNECTIVITY ERROR                           -->
-    <!-- ============================================================= -->
+    <!-- ========================================================= -->
+    <!-- TEST 09: POST CASE CONNECTIVITY ERROR                     -->
+    <!-- ========================================================= -->
 
     <munit:test
-            name="post-cases-connectivity-error-test"
-            description="Verify Salesforce connectivity error during creation"
-            expectedErrorType="SALESFORCE:CONNECTIVITY">
+        name="post-cases-connectivity-error-test"
+        description="Verify Salesforce connectivity error during case creation"
+        expectedErrorType="SALESFORCE:CONNECTIVITY">
 
         <munit:behavior>
 
             <munit-tools:mock-when
-                    doc:name="Mock Create Connectivity Error"
-                    processor="salesforce:create">
+                doc:name="Mock Case Creation Connectivity Error"
+                processor="salesforce:create">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Create"/>
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Case"/>
                 </munit-tools:with-attributes>
 
                 <munit-tools:then-return>
-                    <munit-tools:error
-                            typeId="SALESFORCE:CONNECTIVITY"/>
+                    <munit-tools:error typeId="SALESFORCE:CONNECTIVITY"/>
                 </munit-tools:then-return>
 
             </munit-tools:mock-when>
@@ -769,52 +764,50 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
 
         <munit:execution>
 
-            <munit:set-event doc:name="Set Valid Case Input">
+            <munit:set-event doc:name="Set Valid Case Creation Input">
 
                 <munit:payload
-                        mediaType="application/java"
-                        value='#[{
-                            contactId: "0030000000XyZABC",
-                            subject: "Billing Inquiry",
-                            description:
-                                "Customer cannot access billing portal",
-                            priority: "High"
-                        }]' />
+                    mediaType="application/java"
+                    value="#[{
+                        contactId: '0030000000XyZABC',
+                        subject: 'Billing Inquiry',
+                        description: 'Customer cannot access billing portal',
+                        priority: 'High'
+                    }]"/>
 
             </munit:set-event>
 
             <flow-ref
-                    doc:name="Call Post Cases Flow"
-                    name="post:\cases:application\json:salesforce-sys-api-config"/>
+                doc:name="Call Post Cases Flow"
+                name="post:\cases:application\json:salesforce-sys-api-config"/>
 
         </munit:execution>
 
     </munit:test>
 
-    <!-- ============================================================= -->
-    <!-- TEST 10: PATCH CASE INVALID INPUT ERROR                        -->
-    <!-- ============================================================= -->
+    <!-- ========================================================= -->
+    <!-- TEST 10: PATCH CASE INVALID INPUT                         -->
+    <!-- ========================================================= -->
 
     <munit:test
-            name="patch-cases-invalid-input-test"
-            description="Verify Salesforce invalid input error during update"
-            expectedErrorType="SALESFORCE:INVALID_INPUT">
+        name="patch-cases-invalid-input-test"
+        description="Verify Salesforce invalid input error during case update"
+        expectedErrorType="SALESFORCE:INVALID_INPUT">
 
         <munit:behavior>
 
             <munit-tools:mock-when
-                    doc:name="Mock Update Invalid Input Error"
-                    processor="salesforce:update">
+                doc:name="Mock Case Update Invalid Input Error"
+                processor="salesforce:update">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Update"/>
+                        attributeName="doc:name"
+                        whereValue="Update Salesforce Case"/>
                 </munit-tools:with-attributes>
 
                 <munit-tools:then-return>
-                    <munit-tools:error
-                            typeId="SALESFORCE:INVALID_INPUT"/>
+                    <munit-tools:error typeId="SALESFORCE:INVALID_INPUT"/>
                 </munit-tools:then-return>
 
             </munit-tools:mock-when>
@@ -823,56 +816,55 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
 
         <munit:execution>
 
-            <munit:set-event doc:name="Set Patch Input">
+            <munit:set-event doc:name="Set Case Update Input">
 
                 <munit:payload
-                        mediaType="application/java"
-                        value='#[{
-                            status: "Closed",
-                            priority: "High"
-                        }]' />
+                    mediaType="application/java"
+                    value="#[{
+                        status: 'Closed',
+                        priority: 'High'
+                    }]"/>
 
                 <munit:attributes
-                        value='#[{
-                            uriParams: {
-                                caseId: "5008W00000DCaseXYZ"
-                            }
-                        }]' />
+                    value="#[{
+                        uriParams: {
+                            caseId: '5008W00000DCaseXYZ'
+                        }
+                    }]"/>
 
             </munit:set-event>
 
             <flow-ref
-                    doc:name="Call Patch Cases Flow"
-                    name="patch:\cases\(caseId):application\json:salesforce-sys-api-config"/>
+                doc:name="Call Patch Case Flow"
+                name="patch:\cases\(caseId):application\json:salesforce-sys-api-config"/>
 
         </munit:execution>
 
     </munit:test>
 
-    <!-- ============================================================= -->
-    <!-- TEST 11: GET CASES TIMEOUT ERROR                               -->
-    <!-- ============================================================= -->
+    <!-- ========================================================= -->
+    <!-- TEST 11: GET CASES TIMEOUT                                -->
+    <!-- ========================================================= -->
 
     <munit:test
-            name="get-cases-by-contact-timeout-test"
-            description="Verify Salesforce timeout error during query"
-            expectedErrorType="SALESFORCE:TIMEOUT">
+        name="get-cases-by-contact-timeout-test"
+        description="Verify Salesforce timeout error during case query"
+        expectedErrorType="SALESFORCE:TIMEOUT">
 
         <munit:behavior>
 
             <munit-tools:mock-when
-                    doc:name="Mock Query Timeout Error"
-                    processor="salesforce:query">
+                doc:name="Mock Case Query Timeout Error"
+                processor="salesforce:query">
 
                 <munit-tools:with-attributes>
                     <munit-tools:with-attribute
-                            attributeName="doc:name"
-                            whereValue="Query"/>
+                        attributeName="doc:name"
+                        whereValue="Query Cases By Contact ID"/>
                 </munit-tools:with-attributes>
 
                 <munit-tools:then-return>
-                    <munit-tools:error
-                            typeId="SALESFORCE:TIMEOUT"/>
+                    <munit-tools:error typeId="SALESFORCE:TIMEOUT"/>
                 </munit-tools:then-return>
 
             </munit-tools:mock-when>
@@ -884,17 +876,17 @@ http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/mu
             <munit:set-event doc:name="Set Contact ID">
 
                 <munit:attributes
-                        value='#[{
-                            uriParams: {
-                                contactId: "0030000000XyZABC"
-                            }
-                        }]' />
+                    value="#[{
+                        uriParams: {
+                            contactId: '0030000000XyZABC'
+                        }
+                    }]"/>
 
             </munit:set-event>
 
             <flow-ref
-                    doc:name="Call Get Cases Flow"
-                    name="get:\cases\customer\(contactId):salesforce-sys-api-config"/>
+                doc:name="Call Get Cases By Contact Flow"
+                name="get:\cases\customer\(contactId):salesforce-sys-api-config"/>
 
         </munit:execution>
 

@@ -1,724 +1,806 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
-    xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
-    xmlns="http://www.mulesoft.org/schema/mule/core"
-    xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-    xsi:schemaLocation="
-        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
-        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit
+        http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools
+        http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
 
     <munit:config name="contacts-flows-suite.xml"/>
 
-    <!-- ==========================================================================
-         TEST 1 — Successful Contact Creation (happy path)
-         Mock  : salesforce:create returns { successful: true,
-                                             items[0].payload.success: true,
-                                             items[0].id: "0035000001ContactABC" }
-         Flow  : post:\contacts:application\json:salesforce-sys-api-config
-         Expect: payload.status  = "success"
-                 payload.message = "Contact created successfully"
-                 payload.id      = "0035000001ContactABC"
-                 vars.httpStatus is null (global error handler never fired)
-                 salesforce:create called exactly once
-         ========================================================================== -->
-    <munit:test name="post-contacts-success-test"
-                doc:id="cnt10001-1001-1001-1001-100000000001"
-                description="Verify a valid contact creation returns status=success, the new contact id, and no HTTP error status">
+
+    <!-- ========================================================= -->
+    <!-- TEST 01: POST CONTACT SUCCESS                             -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="post-contacts-success-test"
+        description="Verify successful Salesforce Contact creation">
 
         <munit:behavior>
-            <munit-tools:mock-when doc:name="Mock salesforce:create — success"
-                                   doc:id="cnt10002-1002-1002-1002-100000000002"
-                                   processor="salesforce:create">
+
+            <munit-tools:mock-when
+                doc:name="Mock Salesforce Contact Creation Success"
+                processor="salesforce:create">
+
                 <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Create"/>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Contact"/>
                 </munit-tools:with-attributes>
+
                 <munit-tools:then-return>
-                    <munit-tools:payload mediaType="application/java" value='#[{
-                        successful: true,
-                        items: [
-                            {
-                                payload: {
-                                    success: true
-                                },
-                                id: "0035000001ContactABC"
-                            }
-                        ]
-                    }]'/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-        </munit:behavior>
 
-        <munit:execution>
-            <munit:set-event doc:name="Set Input — valid firstName, lastName, email, accountId"
-                             doc:id="cnt10003-1003-1003-1003-100000000003">
-                <munit:payload mediaType="application/java" value='#[{
-                    firstName: "John",
-                    lastName: "Doe",
-                    email: "john.doe@example.com",
-                    accountId: "0015000001XxxXXXABC"
-                }]'/>
-            </munit:set-event>
-            <flow-ref doc:name="Flow Reference — post contacts"
-                      doc:id="cnt10004-1004-1004-1004-100000000004"
-                      name="post:\contacts:application\json:salesforce-sys-api-config"/>
-        </munit:execution>
-
-        <munit:validation>
-            <munit-tools:assert-that doc:name="Assert payload.status is success"
-                                     doc:id="cnt10005-1005-1005-1005-100000000005"
-                                     expression="#[payload.status]"
-                                     is='#[MunitTools::equalTo("success")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.message is Contact created successfully"
-                                     doc:id="cnt10006-1006-1006-1006-100000000006"
-                                     expression="#[payload.message]"
-                                     is='#[MunitTools::equalTo("Contact created successfully")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.id echoes the new Salesforce contact id"
-                                     doc:id="cnt10007-1007-1007-1007-100000000007"
-                                     expression="#[payload.id]"
-                                     is='#[MunitTools::equalTo("0035000001ContactABC")]'/>
-            <munit-tools:assert-that doc:name="Assert vars.httpStatus is null (no error handler fired)"
-                                     doc:id="cnt10008-1008-1008-1008-100000000008"
-                                     expression="#[vars.httpStatus default null]"
-                                     is='#[MunitTools::nullValue()]'/>
-            <munit-tools:verify-call doc:name="Verify salesforce:create was called exactly once"
-                                     doc:id="cnt10009-1009-1009-1009-100000000009"
-                                     processor="salesforce:create"
-                                     times="1">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Create"/>
-                </munit-tools:with-attributes>
-            </munit-tools:verify-call>
-        </munit:validation>
-
-    </munit:test>
-
-    <!-- ==========================================================================
-         TEST 2 — Salesforce Business-Level Creation Failure
-         Mock  : salesforce:create returns { successful: false } with localizedMessage.
-                 Simulates Salesforce rejecting the creation (e.g. duplicate email,
-                 invalid AccountId) without raising a Mule connector error.
-         Flow  : post:\contacts:application\json:salesforce-sys-api-config
-         Expect: payload.status  = "failed"
-                 payload.message = rejection reason from localizedMessage
-                 vars.httpStatus is null (no Mule error — global error handler NOT invoked)
-                 salesforce:create called exactly once
-         ========================================================================== -->
-    <munit:test name="post-contacts-failed-creation-test"
-                doc:id="cnt20001-2001-2001-2001-200000000001"
-                description="Verify a Salesforce business-level rejection on contact create returns status=failed and the rejection message">
-
-        <munit:behavior>
-            <munit-tools:mock-when doc:name="Mock salesforce:create — Salesforce rejects creation"
-                                   doc:id="cnt20002-2002-2002-2002-200000000002"
-                                   processor="salesforce:create">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Create"/>
-                </munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:payload mediaType="application/java" value='#[{
-                        successful: false,
-                        items: [
-                            {
-                                exception: {
-                                    localizedMessage: "Email is not in the correct format"
+                    <munit-tools:payload
+                        mediaType="application/java"
+                        value="#[{
+                            successful: true,
+                            items: [
+                                {
+                                    id: '003000000000001AAA',
+                                    payload: {
+                                        success: true,
+                                        errors: []
+                                    },
+                                    successful: true
                                 }
+                            ]
+                        }]"/>
+
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Valid Contact Creation Request">
+
+                <munit:payload
+                    mediaType="application/json"
+                    value="#[output application/json
+---
+{
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john.doe@example.com',
+    accountId: '001000000000001AAA'
+}]"/>
+
+            </munit:set-event>
+
+            <flow-ref
+                doc:name="Call Post Contacts Flow"
+                name="post:\contacts:application\json:salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Creation Status Success"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('success')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Creation Message"
+                expression="#[payload.message]"
+                is="#[MunitTools::equalTo('Contact created successfully')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Created Contact ID"
+                expression="#[payload.id]"
+                is="#[MunitTools::equalTo('003000000000001AAA')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                doc:name="Verify Salesforce Contact Creation Called Once"
+                processor="salesforce:create"
+                times="1">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Contact"/>
+                </munit-tools:with-attributes>
+
+            </munit-tools:verify-call>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ========================================================= -->
+    <!-- TEST 02: POST CONTACT BUSINESS FAILURE                    -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="post-contacts-failed-creation-test"
+        description="Verify Salesforce business rejection during Contact creation">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                doc:name="Mock Salesforce Contact Creation Failure"
+                processor="salesforce:create">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Contact"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+
+                    <munit-tools:payload
+                        mediaType="application/java"
+                        value="#[{
+                            successful: false,
+                            items: [
+                                {
+                                    exception: {
+                                        localizedMessage:
+                                            'Email is not in the correct format'
+                                    }
+                                }
+                            ]
+                        }]"/>
+
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Invalid Contact Creation Request">
+
+                <munit:payload
+                    mediaType="application/json"
+                    value="#[output application/json
+---
+{
+    firstName: 'Jane',
+    lastName: 'Smith',
+    email: 'INVALID_EMAIL',
+    accountId: '001000000000001AAA'
+}]"/>
+
+            </munit:set-event>
+
+            <flow-ref
+                doc:name="Call Post Contacts Flow"
+                name="post:\contacts:application\json:salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+        <munit:validation>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Creation Status Failed"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('failed')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Creation Failure Message"
+                expression="#[payload.message]"
+                is="#[MunitTools::equalTo(
+                    'Email is not in the correct format'
+                )]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                doc:name="Verify Salesforce Contact Creation Called Once"
+                processor="salesforce:create"
+                times="1">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Contact"/>
+                </munit-tools:with-attributes>
+
+            </munit-tools:verify-call>
+
+        </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ========================================================= -->
+    <!-- TEST 03: POST CONTACT CONNECTIVITY ERROR                  -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="post-contacts-connectivity-error-test"
+        description="Verify Salesforce connectivity error during Contact creation"
+        expectedErrorType="SALESFORCE:CONNECTIVITY">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                doc:name="Mock Contact Creation Connectivity Error"
+                processor="salesforce:create">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Create Salesforce Contact"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:error
+                        typeId="SALESFORCE:CONNECTIVITY"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Valid Contact Creation Request">
+
+                <munit:payload
+                    mediaType="application/json"
+                    value="#[output application/json
+---
+{
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john.doe@example.com',
+    accountId: '001000000000001AAA'
+}]"/>
+
+            </munit:set-event>
+
+            <flow-ref
+                doc:name="Call Post Contacts Flow"
+                name="post:\contacts:application\json:salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+    </munit:test>
+
+
+    <!-- ========================================================= -->
+    <!-- TEST 04: GET CONTACT BY ID SUCCESS                        -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="get-contacts-by-id-success-test"
+        description="Verify successful Salesforce Contact retrieval by ID">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                doc:name="Mock Salesforce Contact Retrieval Success"
+                processor="salesforce:retrieve">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Retrieve Salesforce Contact By ID"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+
+                    <munit-tools:payload
+                        mediaType="application/java"
+                        value="#[[
+                            {
+                                Id: '003000000000001AAA',
+                                FirstName: 'John',
+                                LastName: 'Doe',
+                                Email: 'john.doe@example.com',
+                                AccountId: '001000000000001AAA'
                             }
-                        ]
-                    }]'/>
+                        ]]"/>
+
                 </munit-tools:then-return>
+
             </munit-tools:mock-when>
+
         </munit:behavior>
 
         <munit:execution>
-            <munit:set-event doc:name="Set Input — invalid email to trigger business rejection"
-                             doc:id="cnt20003-2003-2003-2003-200000000003">
-                <munit:payload mediaType="application/java" value='#[{
-                    firstName: "Jane",
-                    lastName: "Smith",
-                    email: "INVALID_EMAIL",
-                    accountId: "0015000001XxxXXXABC"
-                }]'/>
-            </munit:set-event>
-            <flow-ref doc:name="Flow Reference — post contacts"
-                      doc:id="cnt20004-2004-2004-2004-200000000004"
-                      name="post:\contacts:application\json:salesforce-sys-api-config"/>
-        </munit:execution>
 
-        <munit:validation>
-            <munit-tools:assert-that doc:name="Assert payload.status is failed"
-                                     doc:id="cnt20005-2005-2005-2005-200000000005"
-                                     expression="#[payload.status]"
-                                     is='#[MunitTools::equalTo("failed")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.message contains the rejection reason"
-                                     doc:id="cnt20006-2006-2006-2006-200000000006"
-                                     expression="#[payload.message]"
-                                     is='#[MunitTools::equalTo("Email is not in the correct format")]'/>
-            <munit-tools:assert-that doc:name="Assert vars.httpStatus is null (no Mule error — error handler not invoked)"
-                                     doc:id="cnt20007-2007-2007-2007-200000000007"
-                                     expression="#[vars.httpStatus default null]"
-                                     is='#[MunitTools::nullValue()]'/>
-            <munit-tools:verify-call doc:name="Verify salesforce:create was called exactly once"
-                                     doc:id="cnt20008-2008-2008-2008-200000000008"
-                                     processor="salesforce:create"
-                                     times="1">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Create"/>
-                </munit-tools:with-attributes>
-            </munit-tools:verify-call>
-        </munit:validation>
+            <munit:set-event doc:name="Set Valid Contact ID">
 
-    </munit:test>
-
-    <!-- ==========================================================================
-         TEST 3 — Salesforce Connectivity Error on Contact Creation
-         Mock  : salesforce:create throws SALESFORCE:CONNECTIVITY (connector-level error)
-         Flow  : post:\contacts:application\json:salesforce-sys-api-config
-         Handler: global_error_handler on-error-propagate SALESFORCE:CONNECTIVITY
-                  sets vars.httpStatus = 503, calls common_error_handler, re-propagates
-         MUnit : expectedErrorType="SALESFORCE:CONNECTIVITY" — validation runs against
-                 event state after error-handler processors complete.
-         Expect: error type    = SALESFORCE:CONNECTIVITY
-                 vars.httpStatus  = 503
-                 payload.status   = "failed"
-                 payload.statusCode = 503
-                 salesforce:create called exactly once
-         ========================================================================== -->
-    <munit:test name="post-contacts-connectivity-error-test"
-                doc:id="cnt30001-3001-3001-3001-300000000001"
-                description="Verify SALESFORCE:CONNECTIVITY on contact create triggers global error handler, sets httpStatus=503, and returns failed payload"
-                expectedErrorType="SALESFORCE:CONNECTIVITY">
-
-        <munit:behavior>
-            <munit-tools:mock-when doc:name="Mock salesforce:create — throw SALESFORCE:CONNECTIVITY"
-                                   doc:id="cnt30002-3002-3002-3002-300000000002"
-                                   processor="salesforce:create">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Create"/>
-                </munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:error typeId="SALESFORCE:CONNECTIVITY"
-                                       doc:id="cnt30003-3003-3003-3003-300000000003"/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-        </munit:behavior>
-
-        <munit:execution>
-            <munit:set-event doc:name="Set Input — valid contact fields, connectivity will fail at connector"
-                             doc:id="cnt30004-3004-3004-3004-300000000004">
-                <munit:payload mediaType="application/java" value='#[{
-                    firstName: "John",
-                    lastName: "Doe",
-                    email: "john.doe@example.com",
-                    accountId: "0015000001XxxXXXABC"
-                }]'/>
-            </munit:set-event>
-            <flow-ref doc:name="Flow Reference — post contacts"
-                      doc:id="cnt30005-3005-3005-3005-300000000005"
-                      name="post:\contacts:application\json:salesforce-sys-api-config"/>
-        </munit:execution>
-
-        <munit:validation>
-            <munit-tools:assert-that doc:name="Assert vars.httpStatus is 503 (set by global error handler)"
-                                     doc:id="cnt30006-3006-3006-3006-300000000006"
-                                     expression="#[vars.httpStatus default null]"
-                                     is='#[MunitTools::equalTo(503)]'/>
-            <munit-tools:assert-that doc:name="Assert payload.status is failed (set by common_error_handler)"
-                                     doc:id="cnt30007-3007-3007-3007-300000000007"
-                                     expression="#[payload.status]"
-                                     is='#[MunitTools::equalTo("failed")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.statusCode is 503"
-                                     doc:id="cnt30008-3008-3008-3008-300000000008"
-                                     expression="#[payload.statusCode]"
-                                     is='#[MunitTools::equalTo(503)]'/>
-            <munit-tools:verify-call doc:name="Verify salesforce:create was called exactly once"
-                                     doc:id="cnt30009-3009-3009-3009-300000000009"
-                                     processor="salesforce:create"
-                                     times="1">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Create"/>
-                </munit-tools:with-attributes>
-            </munit-tools:verify-call>
-        </munit:validation>
-
-    </munit:test>
-
-    <!-- ==========================================================================
-         TEST 4 — Successful Contact Retrieval by ID (happy path)
-         Mock  : salesforce:retrieve returns a list containing one Contact record
-                 with Id, FirstName, LastName, Email, AccountId populated.
-         Flow  : get:\contacts\(id):salesforce-sys-api-config
-         Expect: payload.status         = "success"
-                 payload.data.contactId = "0035000001ContactABC"
-                 payload.data.firstName = "John"
-                 payload.data.lastName  = "Doe"
-                 payload.data.email     = "john.doe@example.com"
-                 payload.data.accountId = "0015000001XxxXXXABC"
-                 vars.httpStatus is null (global error handler never fired)
-                 salesforce:retrieve called exactly once
-         ========================================================================== -->
-    <munit:test name="get-contacts-by-id-success-test"
-                doc:id="cnt40001-4001-4001-4001-400000000001"
-                description="Verify a valid contact ID returns status=success with all mapped data fields and no HTTP error status">
-
-        <munit:behavior>
-            <munit-tools:mock-when doc:name="Mock salesforce:retrieve — returns one contact record"
-                                   doc:id="cnt40002-4002-4002-4002-400000000002"
-                                   processor="salesforce:retrieve">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Retrieve Contact"/>
-                </munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:payload mediaType="application/java" value='#[[
-                        {
-                            Id        : "0035000001ContactABC",
-                            FirstName : "John",
-                            LastName  : "Doe",
-                            Email     : "john.doe@example.com",
-                            AccountId : "0015000001XxxXXXABC"
+                <munit:attributes
+                    value="#[{
+                        uriParams: {
+                            id: '003000000000001AAA'
                         }
-                    ]]'/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-        </munit:behavior>
+                    }]"/>
 
-        <munit:execution>
-            <munit:set-event doc:name="Set Input — valid contact ID in uriParams"
-                             doc:id="cnt40003-4003-4003-4003-400000000003">
-                <munit:attributes value='#[{
-                    uriParams: {
-                        id: "0035000001ContactABC"
-                    }
-                }]'/>
             </munit:set-event>
-            <flow-ref doc:name="Flow Reference — get contact by id"
-                      doc:id="cnt40004-4004-4004-4004-400000000004"
-                      name="get:\contacts\(id):salesforce-sys-api-config"/>
+
+            <flow-ref
+                doc:name="Call Get Contact By ID Flow"
+                name="get:\contacts\(id):salesforce-sys-api-config"/>
+
         </munit:execution>
 
         <munit:validation>
-            <munit-tools:assert-that doc:name="Assert payload.status is success"
-                                     doc:id="cnt40005-4005-4005-4005-400000000005"
-                                     expression="#[payload.status]"
-                                     is='#[MunitTools::equalTo("success")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data is not null"
-                                     doc:id="cnt40006-4006-4006-4006-400000000006"
-                                     expression="#[payload.data]"
-                                     is='#[MunitTools::notNullValue()]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data.contactId is mapped from Salesforce Id"
-                                     doc:id="cnt40007-4007-4007-4007-400000000007"
-                                     expression="#[payload.data.contactId]"
-                                     is='#[MunitTools::equalTo("0035000001ContactABC")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data.firstName is mapped from FirstName"
-                                     doc:id="cnt40008-4008-4008-4008-400000000008"
-                                     expression="#[payload.data.firstName]"
-                                     is='#[MunitTools::equalTo("John")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data.lastName is mapped from LastName"
-                                     doc:id="cnt40009-4009-4009-4009-400000000009"
-                                     expression="#[payload.data.lastName]"
-                                     is='#[MunitTools::equalTo("Doe")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data.email is mapped from Email"
-                                     doc:id="cnt40010-4010-4010-4010-400000000010"
-                                     expression="#[payload.data.email]"
-                                     is='#[MunitTools::equalTo("john.doe@example.com")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data.accountId is mapped from AccountId"
-                                     doc:id="cnt40011-4011-4011-4011-400000000011"
-                                     expression="#[payload.data.accountId]"
-                                     is='#[MunitTools::equalTo("0015000001XxxXXXABC")]'/>
-            <munit-tools:assert-that doc:name="Assert vars.httpStatus is null (no error handler fired)"
-                                     doc:id="cnt40012-4012-4012-4012-400000000012"
-                                     expression="#[vars.httpStatus default null]"
-                                     is='#[MunitTools::nullValue()]'/>
-            <munit-tools:verify-call doc:name="Verify salesforce:retrieve was called exactly once"
-                                     doc:id="cnt40013-4013-4013-4013-400000000013"
-                                     processor="salesforce:retrieve"
-                                     times="1">
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Retrieval Status Success"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('success')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Data Is Not Null"
+                expression="#[payload.data]"
+                is="#[MunitTools::notNullValue()]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact ID"
+                expression="#[payload.data.contactId]"
+                is="#[MunitTools::equalTo('003000000000001AAA')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact First Name"
+                expression="#[payload.data.firstName]"
+                is="#[MunitTools::equalTo('John')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Last Name"
+                expression="#[payload.data.lastName]"
+                is="#[MunitTools::equalTo('Doe')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Email"
+                expression="#[payload.data.email]"
+                is="#[MunitTools::equalTo('john.doe@example.com')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Account ID"
+                expression="#[payload.data.accountId]"
+                is="#[MunitTools::equalTo('001000000000001AAA')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                doc:name="Verify Salesforce Contact Retrieval Called Once"
+                processor="salesforce:retrieve"
+                times="1">
+
                 <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Retrieve Contact"/>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Retrieve Salesforce Contact By ID"/>
                 </munit-tools:with-attributes>
+
             </munit-tools:verify-call>
+
         </munit:validation>
 
     </munit:test>
 
-    <!-- ==========================================================================
-         TEST 5 — Contact Not Found by ID (empty retrieve result)
-         Mock  : salesforce:retrieve returns an empty list []
-                 Simulates a valid-format ID that has no Contact record in Salesforce.
-         Flow  : get:\contacts\(id):salesforce-sys-api-config
-         Expect: payload.status  = "error"
-                 payload.message = "Contact not found with ID: 0035000001NotFoundXX"
-                 vars.httpStatus is null (isEmpty branch — no Mule error raised)
-                 salesforce:retrieve called exactly once
-         ========================================================================== -->
-    <munit:test name="get-contacts-by-id-not-found-test"
-                doc:id="cnt50001-5001-5001-5001-500000000001"
-                description="Verify a contact ID with no matching record returns status=error with a descriptive message and no HTTP error status">
+
+    <!-- ========================================================= -->
+    <!-- TEST 05: GET CONTACT BY ID NOT FOUND                      -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="get-contacts-by-id-not-found-test"
+        description="Verify empty Salesforce retrieval returns Contact not found">
 
         <munit:behavior>
-            <munit-tools:mock-when doc:name="Mock salesforce:retrieve — returns empty list"
-                                   doc:id="cnt50002-5002-5002-5002-500000000002"
-                                   processor="salesforce:retrieve">
+
+            <munit-tools:mock-when
+                doc:name="Mock Empty Salesforce Contact Retrieval"
+                processor="salesforce:retrieve">
+
                 <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Retrieve Contact"/>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Retrieve Salesforce Contact By ID"/>
                 </munit-tools:with-attributes>
+
                 <munit-tools:then-return>
-                    <munit-tools:payload mediaType="application/java" value="#[[]]"/>
+
+                    <munit-tools:payload
+                        mediaType="application/java"
+                        value="#[[]]"/>
+
                 </munit-tools:then-return>
+
             </munit-tools:mock-when>
+
         </munit:behavior>
 
         <munit:execution>
-            <munit:set-event doc:name="Set Input — contact ID with no matching record"
-                             doc:id="cnt50003-5003-5003-5003-500000000003">
-                <munit:attributes value='#[{
-                    uriParams: {
-                        id: "0035000001NotFoundXX"
-                    }
-                }]'/>
-            </munit:set-event>
-            <flow-ref doc:name="Flow Reference — get contact by id"
-                      doc:id="cnt50004-5004-5004-5004-500000000004"
-                      name="get:\contacts\(id):salesforce-sys-api-config"/>
-        </munit:execution>
 
-        <munit:validation>
-            <munit-tools:assert-that doc:name="Assert payload.status is error"
-                                     doc:id="cnt50005-5005-5005-5005-500000000005"
-                                     expression="#[payload.status]"
-                                     is='#[MunitTools::equalTo("error")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.message reports the missing contact ID"
-                                     doc:id="cnt50006-5006-5006-5006-500000000006"
-                                     expression="#[payload.message]"
-                                     is='#[MunitTools::equalTo("Contact not found with ID: 0035000001NotFoundXX")]'/>
-            <munit-tools:assert-that doc:name="Assert vars.httpStatus is null (empty-list branch — no Mule error raised)"
-                                     doc:id="cnt50007-5007-5007-5007-500000000007"
-                                     expression="#[vars.httpStatus default null]"
-                                     is='#[MunitTools::nullValue()]'/>
-            <munit-tools:verify-call doc:name="Verify salesforce:retrieve was called exactly once"
-                                     doc:id="cnt50008-5008-5008-5008-500000000008"
-                                     processor="salesforce:retrieve"
-                                     times="1">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Retrieve Contact"/>
-                </munit-tools:with-attributes>
-            </munit-tools:verify-call>
-        </munit:validation>
+            <munit:set-event doc:name="Set Nonexistent Contact ID">
 
-    </munit:test>
-
-    <!-- ==========================================================================
-         TEST 6 — Salesforce Connectivity Error on Contact Retrieval by ID
-         Mock  : salesforce:retrieve throws SALESFORCE:CONNECTIVITY (connector-level error)
-         Flow  : get:\contacts\(id):salesforce-sys-api-config
-         Handler: global_error_handler on-error-propagate SALESFORCE:CONNECTIVITY
-                  sets vars.httpStatus = 503, calls common_error_handler, re-propagates
-         MUnit : expectedErrorType="SALESFORCE:CONNECTIVITY" — validation runs against
-                 event state after error-handler processors complete.
-         Expect: error type      = SALESFORCE:CONNECTIVITY
-                 vars.httpStatus    = 503
-                 payload.status     = "failed"
-                 payload.statusCode = 503
-                 salesforce:retrieve called exactly once
-         ========================================================================== -->
-    <munit:test name="get-contacts-by-id-connectivity-error-test"
-                doc:id="cnt60001-6001-6001-6001-600000000001"
-                description="Verify SALESFORCE:CONNECTIVITY on retrieve triggers global error handler, sets httpStatus=503, and returns failed payload"
-                expectedErrorType="SALESFORCE:CONNECTIVITY">
-
-        <munit:behavior>
-            <munit-tools:mock-when doc:name="Mock salesforce:retrieve — throw SALESFORCE:CONNECTIVITY"
-                                   doc:id="cnt60002-6002-6002-6002-600000000002"
-                                   processor="salesforce:retrieve">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Retrieve Contact"/>
-                </munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:error typeId="SALESFORCE:CONNECTIVITY"
-                                       doc:id="cnt60003-6003-6003-6003-600000000003"/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-        </munit:behavior>
-
-        <munit:execution>
-            <munit:set-event doc:name="Set Input — valid contact ID, connectivity will fail at connector"
-                             doc:id="cnt60004-6004-6004-6004-600000000004">
-                <munit:attributes value='#[{
-                    uriParams: {
-                        id: "0035000001ContactABC"
-                    }
-                }]'/>
-            </munit:set-event>
-            <flow-ref doc:name="Flow Reference — get contact by id"
-                      doc:id="cnt60005-6005-6005-6005-600000000005"
-                      name="get:\contacts\(id):salesforce-sys-api-config"/>
-        </munit:execution>
-
-        <munit:validation>
-            <munit-tools:assert-that doc:name="Assert vars.httpStatus is 503 (set by global error handler)"
-                                     doc:id="cnt60006-6006-6006-6006-600000000006"
-                                     expression="#[vars.httpStatus default null]"
-                                     is='#[MunitTools::equalTo(503)]'/>
-            <munit-tools:assert-that doc:name="Assert payload.status is failed (set by common_error_handler)"
-                                     doc:id="cnt60007-6007-6007-6007-600000000007"
-                                     expression="#[payload.status]"
-                                     is='#[MunitTools::equalTo("failed")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.statusCode is 503"
-                                     doc:id="cnt60008-6008-6008-6008-600000000008"
-                                     expression="#[payload.statusCode]"
-                                     is='#[MunitTools::equalTo(503)]'/>
-            <munit-tools:verify-call doc:name="Verify salesforce:retrieve was called exactly once"
-                                     doc:id="cnt60009-6009-6009-6009-600000000009"
-                                     processor="salesforce:retrieve"
-                                     times="1">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Retrieve Contact"/>
-                </munit-tools:with-attributes>
-            </munit-tools:verify-call>
-        </munit:validation>
-
-    </munit:test>
-
-    <!-- ==========================================================================
-         TEST 7 — Successful Contact Query by Email (happy path)
-         Mock  : salesforce:query returns a non-empty List of Contact Maps
-         Flow  : get:\contacts\email\(email):salesforce-sys-api-config
-         Expect: payload.status            = "success"
-                 payload.data is not null
-                 payload.data contains exactly one record
-                 payload.data[0].contactId = "0035000001ContactABC"
-                 payload.data[0].firstName = "John"
-                 payload.data[0].lastName  = "Doe"
-                 payload.data[0].email     = "john.doe@example.com"
-                 payload.data[0].accountId = "0015000001XxxXXXABC"
-                 vars.httpStatus is null (global error handler never fired)
-                 salesforce:query called exactly once
-         ========================================================================== -->
-    <munit:test name="get-contacts-by-email-success-test"
-                doc:id="cnt70001-7001-7001-7001-700000000001"
-                description="Verify a valid email with matching contacts returns status=success and correctly mapped data array">
-
-        <munit:behavior>
-            <munit-tools:mock-when doc:name="Mock salesforce:query — returns contact records"
-                                   doc:id="cnt70002-7002-7002-7002-700000000002"
-                                   processor="salesforce:query">
-                <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Query"/>
-                </munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:payload mediaType="application/java" value='#[[
-                        {
-                            Id        : "0035000001ContactABC",
-                            FirstName : "John",
-                            LastName  : "Doe",
-                            Email     : "john.doe@example.com",
-                            AccountId : "0015000001XxxXXXABC"
+                <munit:attributes
+                    value="#[{
+                        uriParams: {
+                            id: '003000000000999AAA'
                         }
-                    ]]'/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-        </munit:behavior>
+                    }]"/>
 
-        <munit:execution>
-            <munit:set-event doc:name="Set Input — valid email with matching contacts"
-                             doc:id="cnt70003-7003-7003-7003-700000000003">
-                <munit:attributes value='#[{
-                    uriParams: {
-                        email: "john.doe@example.com"
-                    }
-                }]'/>
             </munit:set-event>
-            <flow-ref doc:name="Flow Reference — get contacts by email"
-                      doc:id="cnt70004-7004-7004-7004-700000000004"
-                      name="get:\contacts\email\(email):salesforce-sys-api-config"/>
+
+            <flow-ref
+                doc:name="Call Get Contact By ID Flow"
+                name="get:\contacts\(id):salesforce-sys-api-config"/>
+
         </munit:execution>
 
         <munit:validation>
-            <munit-tools:assert-that doc:name="Assert payload.status is success"
-                                     doc:id="cnt70005-7005-7005-7005-700000000005"
-                                     expression="#[payload.status]"
-                                     is='#[MunitTools::equalTo("success")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data is not null"
-                                     doc:id="cnt70006-7006-7006-7006-700000000006"
-                                     expression="#[payload.data]"
-                                     is='#[MunitTools::notNullValue()]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data contains exactly one record"
-                                     doc:id="cnt70007-7007-7007-7007-700000000007"
-                                     expression="#[sizeOf(payload.data)]"
-                                     is='#[MunitTools::equalTo(1)]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data[0].contactId is mapped from Salesforce Id"
-                                     doc:id="cnt70008-7008-7008-7008-700000000008"
-                                     expression="#[payload.data[0].contactId]"
-                                     is='#[MunitTools::equalTo("0035000001ContactABC")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data[0].firstName is mapped from FirstName"
-                                     doc:id="cnt70009-7009-7009-7009-700000000009"
-                                     expression="#[payload.data[0].firstName]"
-                                     is='#[MunitTools::equalTo("John")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data[0].lastName is mapped from LastName"
-                                     doc:id="cnt70010-7010-7010-7010-700000000010"
-                                     expression="#[payload.data[0].lastName]"
-                                     is='#[MunitTools::equalTo("Doe")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data[0].email is mapped from Email"
-                                     doc:id="cnt70011-7011-7011-7011-700000000011"
-                                     expression="#[payload.data[0].email]"
-                                     is='#[MunitTools::equalTo("john.doe@example.com")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.data[0].accountId is mapped from AccountId"
-                                     doc:id="cnt70012-7012-7012-7012-700000000012"
-                                     expression="#[payload.data[0].accountId]"
-                                     is='#[MunitTools::equalTo("0015000001XxxXXXABC")]'/>
-            <munit-tools:assert-that doc:name="Assert vars.httpStatus is null (no error handler fired)"
-                                     doc:id="cnt70013-7013-7013-7013-700000000013"
-                                     expression="#[vars.httpStatus default null]"
-                                     is='#[MunitTools::nullValue()]'/>
-            <munit-tools:verify-call doc:name="Verify salesforce:query was called exactly once"
-                                     doc:id="cnt70014-7014-7014-7014-700000000014"
-                                     processor="salesforce:query"
-                                     times="1">
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Retrieval Status Error"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('error')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Not Found Message"
+                expression="#[payload.message]"
+                is="#[MunitTools::equalTo(
+                    'Contact not found with ID: 003000000000999AAA'
+                )]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                doc:name="Verify Salesforce Contact Retrieval Called Once"
+                processor="salesforce:retrieve"
+                times="1">
+
                 <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Query"/>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Retrieve Salesforce Contact By ID"/>
                 </munit-tools:with-attributes>
+
             </munit-tools:verify-call>
+
         </munit:validation>
 
     </munit:test>
 
-    <!-- ==========================================================================
-         TEST 8 — Contact Not Found by Email (empty query result)
-         Mock  : salesforce:query returns an empty list []
-                 Simulates a valid email address that has no matching Contact records.
-         Flow  : get:\contacts\email\(email):salesforce-sys-api-config
-         Expect: payload.status  = "error"
-                 payload.message = "Contact not found with email: notfound@example.com"
-                 vars.httpStatus is null (isEmpty branch — no Mule error raised)
-                 salesforce:query called exactly once
-         ========================================================================== -->
-    <munit:test name="get-contacts-by-email-not-found-test"
-                doc:id="cnt80001-8001-8001-8001-800000000001"
-                description="Verify an email with no matching contacts returns status=error with a descriptive message and no HTTP error status">
+
+    <!-- ========================================================= -->
+    <!-- TEST 06: GET CONTACT BY ID CONNECTIVITY ERROR             -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="get-contacts-by-id-connectivity-error-test"
+        description="Verify Salesforce connectivity error during Contact retrieval"
+        expectedErrorType="SALESFORCE:CONNECTIVITY">
 
         <munit:behavior>
-            <munit-tools:mock-when doc:name="Mock salesforce:query — returns empty list"
-                                   doc:id="cnt80002-8002-8002-8002-800000000002"
-                                   processor="salesforce:query">
+
+            <munit-tools:mock-when
+                doc:name="Mock Contact Retrieval Connectivity Error"
+                processor="salesforce:retrieve">
+
                 <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Query"/>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Retrieve Salesforce Contact By ID"/>
                 </munit-tools:with-attributes>
+
                 <munit-tools:then-return>
-                    <munit-tools:payload mediaType="application/java" value="#[[]]"/>
+                    <munit-tools:error
+                        typeId="SALESFORCE:CONNECTIVITY"/>
                 </munit-tools:then-return>
+
             </munit-tools:mock-when>
+
         </munit:behavior>
 
         <munit:execution>
-            <munit:set-event doc:name="Set Input — email with no matching contacts"
-                             doc:id="cnt80003-8003-8003-8003-800000000003">
-                <munit:attributes value='#[{
-                    uriParams: {
-                        email: "notfound@example.com"
-                    }
-                }]'/>
+
+            <munit:set-event doc:name="Set Contact ID">
+
+                <munit:attributes
+                    value="#[{
+                        uriParams: {
+                            id: '003000000000001AAA'
+                        }
+                    }]"/>
+
             </munit:set-event>
-            <flow-ref doc:name="Flow Reference — get contacts by email"
-                      doc:id="cnt80004-8004-8004-8004-800000000004"
-                      name="get:\contacts\email\(email):salesforce-sys-api-config"/>
+
+            <flow-ref
+                doc:name="Call Get Contact By ID Flow"
+                name="get:\contacts\(id):salesforce-sys-api-config"/>
+
+        </munit:execution>
+
+    </munit:test>
+
+
+    <!-- ========================================================= -->
+    <!-- TEST 07: GET CONTACT BY EMAIL SUCCESS                     -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="get-contacts-by-email-success-test"
+        description="Verify successful Salesforce Contact query by email">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                doc:name="Mock Salesforce Contact Email Query Success"
+                processor="salesforce:query">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Query Salesforce Contact By Email"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+
+                    <munit-tools:payload
+                        mediaType="application/java"
+                        value="#[[
+                            {
+                                Id: '003000000000001AAA',
+                                FirstName: 'John',
+                                LastName: 'Doe',
+                                Email: 'john.doe@example.com',
+                                AccountId: '001000000000001AAA'
+                            }
+                        ]]"/>
+
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Existing Contact Email">
+
+                <munit:attributes
+                    value="#[{
+                        uriParams: {
+                            email: 'john.doe@example.com'
+                        }
+                    }]"/>
+
+            </munit:set-event>
+
+            <flow-ref
+                doc:name="Call Get Contact By Email Flow"
+                name="get:\contacts\email\(email):salesforce-sys-api-config"/>
+
         </munit:execution>
 
         <munit:validation>
-            <munit-tools:assert-that doc:name="Assert payload.status is error"
-                                     doc:id="cnt80005-8005-8005-8005-800000000005"
-                                     expression="#[payload.status]"
-                                     is='#[MunitTools::equalTo("error")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.message reports the missing email"
-                                     doc:id="cnt80006-8006-8006-8006-800000000006"
-                                     expression="#[payload.message]"
-                                     is='#[MunitTools::equalTo("Contact not found with email: notfound@example.com")]'/>
-            <munit-tools:assert-that doc:name="Assert vars.httpStatus is null (empty-list branch — no Mule error raised)"
-                                     doc:id="cnt80007-8007-8007-8007-800000000007"
-                                     expression="#[vars.httpStatus default null]"
-                                     is='#[MunitTools::nullValue()]'/>
-            <munit-tools:verify-call doc:name="Verify salesforce:query was called exactly once"
-                                     doc:id="cnt80008-8008-8008-8008-800000000008"
-                                     processor="salesforce:query"
-                                     times="1">
+
+            <munit-tools:assert-that
+                doc:name="Assert Email Search Status Success"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('success')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Data Is Not Null"
+                expression="#[payload.data]"
+                is="#[MunitTools::notNullValue()]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert One Contact Returned"
+                expression="#[sizeOf(payload.data)]"
+                is="#[MunitTools::equalTo(1)]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Returned Contact ID"
+                expression="#[payload.data[0].contactId]"
+                is="#[MunitTools::equalTo('003000000000001AAA')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Returned Contact First Name"
+                expression="#[payload.data[0].firstName]"
+                is="#[MunitTools::equalTo('John')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Returned Contact Last Name"
+                expression="#[payload.data[0].lastName]"
+                is="#[MunitTools::equalTo('Doe')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Returned Contact Email"
+                expression="#[payload.data[0].email]"
+                is="#[MunitTools::equalTo('john.doe@example.com')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Returned Contact Account ID"
+                expression="#[payload.data[0].accountId]"
+                is="#[MunitTools::equalTo('001000000000001AAA')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                doc:name="Verify Salesforce Contact Email Query Called Once"
+                processor="salesforce:query"
+                times="1">
+
                 <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Query"/>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Query Salesforce Contact By Email"/>
                 </munit-tools:with-attributes>
+
             </munit-tools:verify-call>
+
         </munit:validation>
 
     </munit:test>
 
-    <!-- ==========================================================================
-         TEST 9 — Salesforce Connectivity Error on Contact Query by Email
-         Mock  : salesforce:query throws SALESFORCE:CONNECTIVITY (connector-level error)
-         Flow  : get:\contacts\email\(email):salesforce-sys-api-config
-         Handler: global_error_handler on-error-propagate SALESFORCE:CONNECTIVITY
-                  sets vars.httpStatus = 503, calls common_error_handler, re-propagates
-         MUnit : expectedErrorType="SALESFORCE:CONNECTIVITY" — validation runs against
-                 event state after error-handler processors complete.
-         Expect: error type      = SALESFORCE:CONNECTIVITY
-                 vars.httpStatus    = 503
-                 payload.status     = "failed"
-                 payload.statusCode = 503
-                 salesforce:query called exactly once
-         ========================================================================== -->
-    <munit:test name="get-contacts-by-email-connectivity-error-test"
-                doc:id="cnt90001-9001-9001-9001-900000000001"
-                description="Verify SALESFORCE:CONNECTIVITY on query triggers global error handler, sets httpStatus=503, and returns failed payload"
-                expectedErrorType="SALESFORCE:CONNECTIVITY">
+
+    <!-- ========================================================= -->
+    <!-- TEST 08: GET CONTACT BY EMAIL NOT FOUND                   -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="get-contacts-by-email-not-found-test"
+        description="Verify empty Salesforce query returns Contact not found">
 
         <munit:behavior>
-            <munit-tools:mock-when doc:name="Mock salesforce:query — throw SALESFORCE:CONNECTIVITY"
-                                   doc:id="cnt90002-9002-9002-9002-900000000002"
-                                   processor="salesforce:query">
+
+            <munit-tools:mock-when
+                doc:name="Mock Empty Salesforce Contact Email Query"
+                processor="salesforce:query">
+
                 <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Query"/>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Query Salesforce Contact By Email"/>
                 </munit-tools:with-attributes>
+
                 <munit-tools:then-return>
-                    <munit-tools:error typeId="SALESFORCE:CONNECTIVITY"
-                                       doc:id="cnt90003-9003-9003-9003-900000000003"/>
+
+                    <munit-tools:payload
+                        mediaType="application/java"
+                        value="#[[]]"/>
+
                 </munit-tools:then-return>
+
             </munit-tools:mock-when>
+
         </munit:behavior>
 
         <munit:execution>
-            <munit:set-event doc:name="Set Input — valid email, connectivity will fail at connector"
-                             doc:id="cnt90004-9004-9004-9004-900000000004">
-                <munit:attributes value='#[{
-                    uriParams: {
-                        email: "john.doe@example.com"
-                    }
-                }]'/>
+
+            <munit:set-event doc:name="Set Nonexistent Contact Email">
+
+                <munit:attributes
+                    value="#[{
+                        uriParams: {
+                            email: 'notfound@example.com'
+                        }
+                    }]"/>
+
             </munit:set-event>
-            <flow-ref doc:name="Flow Reference — get contacts by email"
-                      doc:id="cnt90005-9005-9005-9005-900000000005"
-                      name="get:\contacts\email\(email):salesforce-sys-api-config"/>
+
+            <flow-ref
+                doc:name="Call Get Contact By Email Flow"
+                name="get:\contacts\email\(email):salesforce-sys-api-config"/>
+
         </munit:execution>
 
         <munit:validation>
-            <munit-tools:assert-that doc:name="Assert vars.httpStatus is 503 (set by global error handler)"
-                                     doc:id="cnt90006-9006-9006-9006-900000000006"
-                                     expression="#[vars.httpStatus default null]"
-                                     is='#[MunitTools::equalTo(503)]'/>
-            <munit-tools:assert-that doc:name="Assert payload.status is failed (set by common_error_handler)"
-                                     doc:id="cnt90007-9007-9007-9007-900000000007"
-                                     expression="#[payload.status]"
-                                     is='#[MunitTools::equalTo("failed")]'/>
-            <munit-tools:assert-that doc:name="Assert payload.statusCode is 503"
-                                     doc:id="cnt90008-9008-9008-9008-900000000008"
-                                     expression="#[payload.statusCode]"
-                                     is='#[MunitTools::equalTo(503)]'/>
-            <munit-tools:verify-call doc:name="Verify salesforce:query was called exactly once"
-                                     doc:id="cnt90009-9009-9009-9009-900000000009"
-                                     processor="salesforce:query"
-                                     times="1">
+
+            <munit-tools:assert-that
+                doc:name="Assert Email Search Status Error"
+                expression="#[payload.status]"
+                is="#[MunitTools::equalTo('error')]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert Contact Email Not Found Message"
+                expression="#[payload.message]"
+                is="#[MunitTools::equalTo(
+                    'Contact not found with email: notfound@example.com'
+                )]"/>
+
+            <munit-tools:assert-that
+                doc:name="Assert HTTP Status Is Null"
+                expression="#[vars.httpStatus default null]"
+                is="#[MunitTools::nullValue()]"/>
+
+            <munit-tools:verify-call
+                doc:name="Verify Salesforce Contact Email Query Called Once"
+                processor="salesforce:query"
+                times="1">
+
                 <munit-tools:with-attributes>
-                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Query"/>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Query Salesforce Contact By Email"/>
                 </munit-tools:with-attributes>
+
             </munit-tools:verify-call>
+
         </munit:validation>
+
+    </munit:test>
+
+
+    <!-- ========================================================= -->
+    <!-- TEST 09: GET CONTACT BY EMAIL CONNECTIVITY ERROR          -->
+    <!-- ========================================================= -->
+
+    <munit:test
+        name="get-contacts-by-email-connectivity-error-test"
+        description="Verify Salesforce connectivity error during Contact email query"
+        expectedErrorType="SALESFORCE:CONNECTIVITY">
+
+        <munit:behavior>
+
+            <munit-tools:mock-when
+                doc:name="Mock Contact Email Query Connectivity Error"
+                processor="salesforce:query">
+
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute
+                        attributeName="doc:name"
+                        whereValue="Query Salesforce Contact By Email"/>
+                </munit-tools:with-attributes>
+
+                <munit-tools:then-return>
+                    <munit-tools:error
+                        typeId="SALESFORCE:CONNECTIVITY"/>
+                </munit-tools:then-return>
+
+            </munit-tools:mock-when>
+
+        </munit:behavior>
+
+        <munit:execution>
+
+            <munit:set-event doc:name="Set Contact Email">
+
+                <munit:attributes
+                    value="#[{
+                        uriParams: {
+                            email: 'john.doe@example.com'
+                        }
+                    }]"/>
+
+            </munit:set-event>
+
+            <flow-ref
+                doc:name="Call Get Contact By Email Flow"
+                name="get:\contacts\email\(email):salesforce-sys-api-config"/>
+
+        </munit:execution>
 
     </munit:test>
 

@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   ci:
-    name: Build and Test
+    name: Build, Test, Publish and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -59,23 +59,29 @@ jobs:
 
           echo "Java 17 and Maven 3.9.9 are active."
 
-      - name: Validate required Anypoint secrets
+      - name: Validate required Anypoint build secrets
         shell: bash
         env:
           ANYPOINT_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
           ANYPOINT_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
         run: |
+          MISSING=0
+
           if [ -z "$ANYPOINT_CLIENT_ID" ]; then
             echo "::error::ANYPOINT_CLIENT_ID repository secret is missing"
-            exit 1
+            MISSING=1
           fi
 
           if [ -z "$ANYPOINT_CLIENT_SECRET" ]; then
             echo "::error::ANYPOINT_CLIENT_SECRET repository secret is missing"
+            MISSING=1
+          fi
+
+          if [ "$MISSING" -ne 0 ]; then
             exit 1
           fi
 
-          echo "Required Anypoint repository secrets are available."
+          echo "Required Anypoint build secrets are available."
 
       - name: Configure Maven settings for Anypoint Exchange
         shell: bash
@@ -164,6 +170,11 @@ jobs:
             exit 1
           }
 
+          test -f src/main/mule/salesforce-sys-api.xml || {
+            echo "::error::salesforce-sys-api.xml was not found."
+            exit 1
+          }
+
           test -d src/main || {
             echo "::error::src/main was not found."
             exit 1
@@ -176,6 +187,33 @@ jobs:
 
           echo "Required project files are available."
 
+      - name: Validate Autodiscovery configuration
+        shell: bash
+        run: |
+          AUTODISCOVERY_FILE="src/main/mule/salesforce-sys-api.xml"
+
+          if ! grep -q "api-gateway:autodiscovery" "$AUTODISCOVERY_FILE"; then
+            echo "::error::API Autodiscovery element is missing from salesforce-sys-api.xml"
+            exit 1
+          fi
+
+          if ! grep -q 'apiId="${api.id}"' "$AUTODISCOVERY_FILE"; then
+            echo "::error::Autodiscovery must use apiId=\"\${api.id}\""
+            exit 1
+          fi
+
+          if ! grep -q 'flowRef="salesforce-sys-api-main"' "$AUTODISCOVERY_FILE"; then
+            echo "::error::Autodiscovery flowRef must be salesforce-sys-api-main"
+            exit 1
+          fi
+
+          if ! grep -q 'xmlns:api-gateway="http://www.mulesoft.org/schema/mule/mule-gateway"' "$AUTODISCOVERY_FILE"; then
+            echo "::error::API Gateway namespace is missing"
+            exit 1
+          fi
+
+          echo "API Autodiscovery XML configuration is valid."
+
       - name: Maven validate
         shell: bash
         run: |
@@ -183,6 +221,7 @@ jobs:
             --batch-mode \
             --no-transfer-progress \
             --settings "$HOME/.m2/settings.xml" \
+            -Dapi.id=1 \
             validate
 
       - name: Run MUnit tests and package
@@ -192,6 +231,7 @@ jobs:
             --batch-mode \
             --no-transfer-progress \
             --settings "$HOME/.m2/settings.xml" \
+            -Dapi.id=1 \
             package
 
       - name: Upload MUnit reports
@@ -217,7 +257,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Validate CloudHub 2.0 deployment variables
+      - name: Validate CloudHub and Autodiscovery variables
         if: >-
           ${{
             github.event_name == 'workflow_dispatch' &&
@@ -230,12 +270,14 @@ jobs:
           ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
           CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
           SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
+          SAPI_API_ID: ${{ vars.SAPI_API_ID }}
         run: |
           REQUIRED_VARIABLES=(
             ANYPOINT_ORG_ID
             ANYPOINT_ENVIRONMENT
             CLOUDHUB_TARGET
             SAPI_APPLICATION_NAME
+            SAPI_API_ID
           )
 
           MISSING=0
@@ -251,10 +293,54 @@ jobs:
             exit 1
           fi
 
-          echo "CloudHub 2.0 deployment variables are available."
+          if ! [[ "$SAPI_API_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::SAPI_API_ID must be the numeric API Instance ID from API Manager"
+            exit 1
+          fi
+
+          echo "CloudHub 2.0 and Autodiscovery variables are available."
           echo "Environment: $ANYPOINT_ENVIRONMENT"
           echo "Target: $CLOUDHUB_TARGET"
           echo "Application: $SAPI_APPLICATION_NAME"
+          echo "API Instance ID is configured."
+
+      - name: Validate deployment and runtime secrets
+        if: >-
+          ${{
+            github.event_name == 'workflow_dispatch' &&
+            github.ref == 'refs/heads/main' &&
+            inputs.deploy == true
+          }}
+        shell: bash
+        env:
+          CONNECTED_APP_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
+          CONNECTED_APP_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+          ANYPOINT_PLATFORM_CLIENT_ID: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_ID }}
+          ANYPOINT_PLATFORM_CLIENT_SECRET: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}
+          MULE_KEY: ${{ secrets.MULE_KEY }}
+        run: |
+          REQUIRED_SECRETS=(
+            CONNECTED_APP_CLIENT_ID
+            CONNECTED_APP_CLIENT_SECRET
+            ANYPOINT_PLATFORM_CLIENT_ID
+            ANYPOINT_PLATFORM_CLIENT_SECRET
+            MULE_KEY
+          )
+
+          MISSING=0
+
+          for SECRET_NAME in "${REQUIRED_SECRETS[@]}"; do
+            if [ -z "${!SECRET_NAME}" ]; then
+              echo "::error::$SECRET_NAME repository secret is missing"
+              MISSING=1
+            fi
+          done
+
+          if [ "$MISSING" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "Deployment credentials, Autodiscovery credentials, and encryption key are available."
 
       - name: Publish application to Anypoint Exchange
         if: >-
@@ -267,10 +353,17 @@ jobs:
         env:
           CONNECTED_APP_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
           CONNECTED_APP_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+
           ANYPOINT_ORG_ID: ${{ vars.ANYPOINT_ORG_ID }}
           ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
           CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
           SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
+          SAPI_API_ID: ${{ vars.SAPI_API_ID }}
+
+          ANYPOINT_PLATFORM_CLIENT_ID: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_ID }}
+          ANYPOINT_PLATFORM_CLIENT_SECRET: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}
+
+          MULE_KEY: ${{ secrets.MULE_KEY }}
         run: |
           echo "Publishing Salesforce System API to Anypoint Exchange..."
 
@@ -293,12 +386,23 @@ jobs:
         env:
           CONNECTED_APP_CLIENT_ID: ${{ secrets.ANYPOINT_CLIENT_ID }}
           CONNECTED_APP_CLIENT_SECRET: ${{ secrets.ANYPOINT_CLIENT_SECRET }}
+
           ANYPOINT_ORG_ID: ${{ vars.ANYPOINT_ORG_ID }}
           ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
           CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
           SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
+          SAPI_API_ID: ${{ vars.SAPI_API_ID }}
+
+          ANYPOINT_PLATFORM_CLIENT_ID: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_ID }}
+          ANYPOINT_PLATFORM_CLIENT_SECRET: ${{ secrets.ANYPOINT_PLATFORM_CLIENT_SECRET }}
+
+          MULE_KEY: ${{ secrets.MULE_KEY }}
         run: |
           echo "Deploying Salesforce System API to CloudHub 2.0..."
+          echo "Application: $SAPI_APPLICATION_NAME"
+          echo "Environment: $ANYPOINT_ENVIRONMENT"
+          echo "Target: $CLOUDHUB_TARGET"
+          echo "API Autodiscovery ID is configured."
 
           mvn \
             --batch-mode \
@@ -315,6 +419,7 @@ jobs:
           SAPI_APPLICATION_NAME: ${{ vars.SAPI_APPLICATION_NAME }}
           ANYPOINT_ENVIRONMENT: ${{ vars.ANYPOINT_ENVIRONMENT }}
           CLOUDHUB_TARGET: ${{ vars.CLOUDHUB_TARGET }}
+          SAPI_API_ID: ${{ vars.SAPI_API_ID }}
         run: |
           {
             echo "## Salesforce System API CI/CD"
@@ -327,6 +432,7 @@ jobs:
             echo "- Application: \`${SAPI_APPLICATION_NAME:-not configured}\`"
             echo "- Environment: \`${ANYPOINT_ENVIRONMENT:-not configured}\`"
             echo "- Target: \`${CLOUDHUB_TARGET:-not configured}\`"
+            echo "- API Autodiscovery configured: \`$([ -n "$SAPI_API_ID" ] && echo yes || echo no)\`"
             echo "- Deployment requested: \`$DEPLOY_REQUESTED\`"
 
             if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && \
@@ -334,8 +440,10 @@ jobs:
                [ "$DEPLOY_REQUESTED" = "true" ]; then
               echo "- Exchange publishing: \`Enabled\`"
               echo "- CloudHub 2.0 deployment: \`Enabled\`"
+              echo "- API Autodiscovery properties: \`Enabled\`"
             else
               echo "- Exchange publishing: \`Not executed\`"
               echo "- CloudHub 2.0 deployment: \`Not executed\`"
+              echo "- API Autodiscovery deployment: \`Not executed\`"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
