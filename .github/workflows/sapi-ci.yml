@@ -117,8 +117,12 @@ jobs:
 
           settings_path = os.path.expanduser("~/.m2/settings.xml")
 
-          tree = ET.parse(settings_path)
-          root = tree.getroot()
+          try:
+              root = ET.parse(settings_path).getroot()
+          except ET.ParseError as exc:
+              raise SystemExit(
+                  f"::error::settings.xml is not valid XML: {exc}"
+              )
 
           namespace = {
               "m": "http://maven.apache.org/SETTINGS/1.0.0"
@@ -140,18 +144,18 @@ jobs:
           )
 
           if server_id != "anypoint-exchange-v3":
-              raise RuntimeError(
-                  "Maven server ID is missing or incorrect"
+              raise SystemExit(
+                  "::error::Maven server ID is missing or incorrect"
               )
 
           if username != "~~~Client~~~":
-              raise RuntimeError(
-                  "Connected App Maven username is incorrect"
+              raise SystemExit(
+                  "::error::Connected App Maven username is incorrect"
               )
 
           if not password or "~?~" not in password:
-              raise RuntimeError(
-                  "Connected App Maven password format is incorrect"
+              raise SystemExit(
+                  "::error::Connected App Maven password format is incorrect"
               )
 
           print("Maven settings.xml is valid.")
@@ -180,6 +184,11 @@ jobs:
             exit 1
           }
 
+          test -d src/main || {
+            echo "::error::src/main was not found."
+            exit 1
+          }
+
           test -d src/test/munit || {
             echo "::error::src/test/munit was not found."
             exit 1
@@ -195,45 +204,46 @@ jobs:
           import xml.etree.ElementTree as ET
 
           file_path = "src/main/mule/global.xml"
-          gateway_namespace = (
-              "http://www.mulesoft.org/schema/mule/mule-gateway"
-          )
 
           try:
-              tree = ET.parse(file_path)
+              root = ET.parse(file_path).getroot()
           except ET.ParseError as exc:
-              raise RuntimeError(
-                  f"global.xml is not valid XML: {exc}"
-              ) from exc
-
-          root = tree.getroot()
-
-          autodiscovery = root.find(
-              f"{{{gateway_namespace}}}autodiscovery"
-          )
-
-          if autodiscovery is None:
-              autodiscovery = root.find(
-                  f".//{{{gateway_namespace}}}autodiscovery"
+              raise SystemExit(
+                  f"::error::global.xml is not valid XML: {exc}"
               )
 
+          autodiscovery = None
+
+          for element in root.iter():
+              local_name = element.tag.split("}")[-1].lower()
+
+              if local_name in ("autodiscovery", "discovery"):
+                  autodiscovery = element
+                  break
+
           if autodiscovery is None:
-              raise RuntimeError(
-                  "API Autodiscovery element is missing from global.xml"
+              raise SystemExit(
+                  "::error::API Autodiscovery element is missing "
+                  "from global.xml"
               )
 
           api_id = (autodiscovery.get("apiId") or "").strip()
           flow_ref = (autodiscovery.get("flowRef") or "").strip()
 
+          if not api_id:
+              raise SystemExit(
+                  "::error::Autodiscovery apiId is empty"
+              )
+
           if not re.fullmatch(r"[0-9]+", api_id):
-              raise RuntimeError(
-                  "Autodiscovery apiId must contain the numeric "
-                  "API Instance ID"
+              raise SystemExit(
+                  "::error::Autodiscovery apiId must contain only "
+                  "the numeric API Instance ID"
               )
 
           if flow_ref != "salesforce-sys-api-main":
-              raise RuntimeError(
-                  "Autodiscovery flowRef must be "
+              raise SystemExit(
+                  "::error::Autodiscovery flowRef must be "
                   "salesforce-sys-api-main"
               )
 
